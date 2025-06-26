@@ -73,7 +73,7 @@ pub async fn send_confirmation<State>(email: &str, reservation: &db::Reservation
     println!("Reservation Details:");
     println!("- Reservation ID: {}", reservation.id);
     println!("- Event ID: {}", reservation.event_id);
-    println!("- Status: {}", reservation.status());
+    println!("- Status: {}", reservation.status().to_db_string());
     println!("- Created: {}", reservation.created_at);
     println!("");
     println!("Access your reservation details at:");
@@ -114,8 +114,10 @@ fn is_valid_email(email: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::Reservation;
+    use crate::db::{Reservation, ConfirmedReservation};
+    use crate::models::ReservationStatus;
     use time::OffsetDateTime;
+    use uuid::Uuid;
 
     #[tokio::test]
     async fn test_send_verification_valid_email() {
@@ -135,15 +137,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_confirmation_valid_email() {
-        let reservation = Reservation {
-            id: "res123".to_string(),
-            event_id: "evt456".to_string(),
+        let reservation: ConfirmedReservation = Reservation {
+            id: Uuid::new_v4(),
+            event_id: Uuid::new_v4(),
             user_name: "John Doe".to_string(),
             user_email: "john@example.com".to_string(),
-            status: "confirmed".to_string(),
             reservation_token: "token789".to_string(),
             created_at: OffsetDateTime::now_utc(),
             updated_at: OffsetDateTime::now_utc(),
+            verified_at: Some(OffsetDateTime::now_utc()),
+            state: std::marker::PhantomData,
         };
 
         let result = send_confirmation("john@example.com", &reservation).await;
@@ -152,15 +155,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_confirmation_invalid_email() {
-        let reservation = Reservation {
-            id: "res123".to_string(),
-            event_id: "evt456".to_string(),
+        let reservation: ConfirmedReservation = Reservation {
+            id: Uuid::new_v4(),
+            event_id: Uuid::new_v4(),
             user_name: "John Doe".to_string(),
             user_email: "john@example.com".to_string(),
-            status: "confirmed".to_string(),
             reservation_token: "token789".to_string(),
             created_at: OffsetDateTime::now_utc(),
             updated_at: OffsetDateTime::now_utc(),
+            verified_at: Some(OffsetDateTime::now_utc()),
+            state: std::marker::PhantomData,
         };
 
         let result = send_confirmation("invalid-email", &reservation).await;

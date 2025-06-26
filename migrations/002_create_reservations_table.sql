@@ -6,7 +6,7 @@ CREATE TABLE reservations (
     name TEXT NOT NULL,
     phone TEXT,
     token TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending', -- pending, confirmed, cancelled
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'cancelled')),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     

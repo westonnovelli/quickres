@@ -24,6 +24,8 @@ use email::{send_confirmation, send_verification, EmailError};
 use error::AppError;
 use models::{CreateReservationRequest, CreateReservationResponse, EmailVerificationResponse};
 
+use crate::models::{EventResponse, RetrieveReservationResponse};
+
 // Email sender component
 #[derive(Clone, Debug)]
 struct EmailSender {
@@ -59,31 +61,28 @@ struct AppState {
 
 // Route handlers
 
-/// GET /events/:id - fetch event and respond JSON
 async fn get_event(
     Path(event_id): Path<String>,
     State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<EventResponse>, AppError> {
     let db = Database { pool: state.pool.clone() };
-    let event = db.get_event_by_id(&event_id).await?;
-    
-    // Convert database event to JSON response
-    let response = json!({
-        "id": event.id,
-        "name": event.name,
-        "description": event.description,
-        "start_time": event.start_time,
-        "end_time": event.end_time,
-        "capacity": event.capacity,
-        "location": event.location,
-        "created_at": event.created_at,
-        "updated_at": event.updated_at
-    });
+    let event = db.get_event_by_string_id(&event_id).await?;
+
+    let response = EventResponse {
+        id: event.id,
+        name: event.name,
+        description: event.description,
+        start_time: event.start_time,
+        end_time: event.end_time,
+        capacity: event.capacity,
+        location: event.location,
+        created_at: event.created_at,
+        updated_at: event.updated_at,
+    };
     
     Ok(Json(response))
 }
 
-/// POST /reservations - validate payload, check capacity, insert pending reservation
 async fn reserve(
     State(state): State<AppState>,
     Json(payload): Json<CreateReservationRequest>,
@@ -95,8 +94,8 @@ async fn reserve(
     
     // Check if event exists and has capacity
     let db = Database { pool: state.pool.clone() };
-    let event = db.get_event_by_id(&event_id_str).await?;
-    let current_count = db.count_event_reservations(&event_id_str).await?;
+    let event = db.get_event_by_string_id(&event_id_str).await?;
+    let current_count = db.count_event_reservations(&event.id).await?;
     
     if current_count >= event.capacity {
         return Err(AppError::Validation("Event is at full capacity".to_string()));
@@ -111,7 +110,7 @@ async fn reserve(
     let reservation_token = format!("{}-{}", verification_token, magic_link_token);
     
     // Insert pending reservation
-    let reservation = db.insert_reservation(
+    let reservation = db.insert_reservation_with_string_event_id(
         &event_id_str,
         &payload.user_name,
         &payload.user_email,
@@ -122,14 +121,13 @@ async fn reserve(
     state.email_sender.send_verification(&payload.user_email, &verification_token).await?;
     
     let response = CreateReservationResponse {
-        id: Uuid::parse_str(&reservation.id)?,
-        status: reservation.status().to_string(),
+        id: reservation.id,
+        status: reservation.status(),
     };
     
     Ok(Json(response))
 }
 
-/// GET /verify/:token - update reservation status to confirmed, send confirmation email
 async fn verify_email(
     Path(token): Path<String>,
     State(state): State<AppState>,
@@ -164,8 +162,8 @@ async fn verify_email(
     };
     
     // Store data before moving the reservation into confirm_reservation
-    let reservation_id = Uuid::parse_str(&pending_reservation.id)?;
-    let event_id = pending_reservation.event_id.clone();
+    let reservation_id = pending_reservation.id;
+    let event_id = pending_reservation.event_id;
     let user_name = pending_reservation.user_name.clone();
     let user_email = pending_reservation.user_email.clone();
     
@@ -177,20 +175,19 @@ async fn verify_email(
     
     let response = EmailVerificationResponse {
         message: "Reservation confirmed successfully".to_string(),
-        status: confirmed_reservation.status().to_string(),
+        status: confirmed_reservation.status(),
         reservation_id,
         event_id,
         user_name,
-        verified_at: confirmed_reservation.updated_at,
+        verified_at: confirmed_reservation.verified_at.unwrap_or(confirmed_reservation.updated_at),
     };
     
     Ok(Json(response))
 }
 
-/// POST /events - create a randomly generated event
-async fn create_event(
+async fn generate_random_event(
     State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<EventResponse>, AppError> {
     let db = Database { pool: state.pool.clone() };
     
     // Generate random event data
@@ -256,30 +253,29 @@ async fn create_event(
         location.as_deref(),
     ).await?;
     
-    let response = json!({
-        "id": event.id,
-        "name": event.name,
-        "description": event.description,
-        "start_time": event.start_time,
-        "end_time": event.end_time,
-        "capacity": event.capacity,
-        "location": event.location,
-        "created_at": event.created_at,
-        "updated_at": event.updated_at
-    });
+    let response = EventResponse {
+        id: event.id,
+        name: event.name,
+        description: event.description,
+        start_time: event.start_time,
+        end_time: event.end_time,
+        capacity: event.capacity,
+        location: event.location,
+        created_at: event.created_at,
+        updated_at: event.updated_at,
+    };
     
     Ok(Json(response))
 }
 
-/// GET /reservation/:magic_token - fetch confirmed reservation, return JSON (404 otherwise)
 async fn get_reservation_by_magic_token(
     Path(magic_token): Path<String>,
     State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<RetrieveReservationResponse>, AppError> {
     let db = Database { pool: state.pool.clone() };
     
     // First, try to find a confirmed reservation by exact token match
-    let reservation = match db.get_confirmed_reservation_by_token(&magic_token).await {
+    let confirmed_reservation = match db.get_confirmed_reservation_by_token(&magic_token).await {
         Ok(confirmed) => confirmed,
         Err(_) => {
             // If not found by exact match, try to find by token suffix (magic link part)
@@ -306,16 +302,28 @@ async fn get_reservation_by_magic_token(
         }
     };
     
-    let response = json!({
-        "id": reservation.id,
-        "event_id": reservation.event_id,
-        "user_name": reservation.user_name,
-        "user_email": reservation.user_email,
-        "status": reservation.status(),
-        "reservation_token": reservation.reservation_token,
-        "created_at": reservation.created_at,
-        "updated_at": reservation.updated_at
-    });
+    let response = RetrieveReservationResponse {
+        id: confirmed_reservation.id,
+        event_id: confirmed_reservation.event_id,
+        user_name: confirmed_reservation.user_name.clone(),
+        user_email: confirmed_reservation.user_email.clone(),
+        status: confirmed_reservation.status(),
+        reservation_token: confirmed_reservation.reservation_token.clone(),
+        event: {
+            let event = db.get_event_by_id(&confirmed_reservation.event_id).await?;
+            EventResponse {
+                id: event.id,
+                name: event.name,
+                description: event.description,
+                start_time: event.start_time,
+                end_time: event.end_time,
+                capacity: event.capacity,
+                location: event.location,
+                created_at: event.created_at,
+                updated_at: event.updated_at,
+            }
+        },
+    };  
     
     Ok(Json(response))
 }
@@ -345,7 +353,7 @@ async fn main() -> shuttle_axum::ShuttleAxum {
     // Build Axum router with middleware layers
     let router = Router::new()
         .route("/", get(hello_world))
-        .route("/events/new", post(create_event))
+        .route("/events/new", post(generate_random_event))
         .route("/events/{id}", get(get_event))
         .route("/reserve", post(reserve))
         .route("/verify/{token}", get(verify_email))
