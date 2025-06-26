@@ -22,7 +22,7 @@ mod models;
 use db::{Database, DatabaseError};
 use email::{send_confirmation, send_verification, EmailError};
 use error::AppError;
-use models::{CreateReservationRequest, CreateReservationResponse};
+use models::{CreateReservationRequest, CreateReservationResponse, EmailVerificationResponse};
 
 // Email sender component
 #[derive(Clone, Debug)]
@@ -133,7 +133,7 @@ async fn reserve(
 async fn verify_email(
     Path(token): Path<String>,
     State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<EmailVerificationResponse>, AppError> {
     let db = Database { pool: state.pool.clone() };
     
     // Find pending reservation by token
@@ -163,16 +163,26 @@ async fn verify_email(
         }
     };
     
+    // Store data before moving the reservation into confirm_reservation
+    let reservation_id = Uuid::parse_str(&pending_reservation.id)?;
+    let event_id = pending_reservation.event_id.clone();
+    let user_name = pending_reservation.user_name.clone();
+    let user_email = pending_reservation.user_email.clone();
+    
     // Confirm the reservation using type-safe state transition
     let confirmed_reservation = db.confirm_reservation(pending_reservation).await?;
     
     // Send confirmation email
-    state.email_sender.send_confirmation(&confirmed_reservation.user_email, &confirmed_reservation).await?;
+    state.email_sender.send_confirmation(&user_email, &confirmed_reservation).await?;
     
-    let response = json!({
-        "message": "Reservation confirmed successfully",
-        "status": confirmed_reservation.status()
-    });
+    let response = EmailVerificationResponse {
+        message: "Reservation confirmed successfully".to_string(),
+        status: confirmed_reservation.status().to_string(),
+        reservation_id,
+        event_id,
+        user_name,
+        verified_at: confirmed_reservation.updated_at,
+    };
     
     Ok(Json(response))
 }

@@ -67,7 +67,7 @@ pub type CancelledReservation = Reservation<Cancelled>;
 
 // Raw database row for deserialization
 #[derive(Debug, sqlx::FromRow)]
-struct ReservationRow {
+pub struct ReservationRow {
     pub id: String,
     pub event_id: String,
     pub user_name: String,
@@ -421,22 +421,9 @@ impl Database {
         Ok(cancelled)
     }
 
-    /// Get reservation by ID
-    pub async fn get_reservation_by_id(&self, reservation_id: &str) -> Result<Reservation, DatabaseError> {
-        let reservation = sqlx::query_as::<_, Reservation>(
-            "SELECT * FROM reservations WHERE id = ?"
-        )
-        .bind(reservation_id)
-        .fetch_optional(&self.pool)
-        .await?
-        .ok_or(DatabaseError::ReservationNotFound)?;
-
-        Ok(reservation)
-    }
-
-    /// Get reservation by token
-    pub async fn get_reservation_by_token(&self, token: &str) -> Result<Reservation, DatabaseError> {
-        let reservation = sqlx::query_as::<_, Reservation>(
+    /// Get any reservation by token with dynamic typing
+    pub async fn get_reservation_by_token_any(&self, token: &str) -> Result<ReservationRow, DatabaseError> {
+        let row = sqlx::query_as::<_, ReservationRow>(
             "SELECT * FROM reservations WHERE reservation_token = ?"
         )
         .bind(token)
@@ -444,31 +431,7 @@ impl Database {
         .await?
         .ok_or(DatabaseError::ReservationNotFound)?;
 
-        Ok(reservation)
-    }
-
-    /// Get all reservations for an event
-    pub async fn get_event_reservations(&self, event_id: &str) -> Result<Vec<Reservation>, DatabaseError> {
-        let reservations = sqlx::query_as::<_, Reservation>(
-            "SELECT * FROM reservations WHERE event_id = ? ORDER BY created_at DESC"
-        )
-        .bind(event_id)
-        .fetch_all(&self.pool)
-        .await?;
-
-        Ok(reservations)
-    }
-
-    /// Get reservations by user email
-    pub async fn get_user_reservations(&self, user_email: &str) -> Result<Vec<Reservation>, DatabaseError> {
-        let reservations = sqlx::query_as::<_, Reservation>(
-            "SELECT * FROM reservations WHERE user_email = ? ORDER BY created_at DESC"
-        )
-        .bind(user_email)
-        .fetch_all(&self.pool)
-        .await?;
-
-        Ok(reservations)
+        Ok(row)
     }
 
     /// Check if event has available capacity
@@ -551,18 +514,18 @@ mod tests {
         ).await.unwrap();
         
         assert_eq!(reservation.user_name, "John Doe");
-        assert_eq!(reservation.status, "pending");
+        assert_eq!(reservation.status(), "pending");
         
         // Test capacity check
         let has_capacity = db.check_event_capacity(&event.id).await.unwrap();
         assert!(has_capacity);
         
-        // Test status update
-        let updated = db.update_reservation_status(&reservation.id, "confirmed").await.unwrap();
-        assert_eq!(updated.status, "confirmed");
+        // Test confirmation (type-safe state transition)
+        let confirmed = db.confirm_reservation(reservation).await.unwrap();
+        assert_eq!(confirmed.status(), "confirmed");
         
         // Test retrieval by token
-        let found = db.get_reservation_by_token("test-token-123").await.unwrap();
-        assert_eq!(found.id, reservation.id);
+        let found = db.get_confirmed_reservation_by_token("test-token-123").await.unwrap();
+        assert_eq!(found.id, confirmed.id);
     }
 }

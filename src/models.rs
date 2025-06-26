@@ -77,4 +77,15 @@ pub struct CreateReservationResponse {
     pub status: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EmailVerificationResponse {
+    pub message: String,
+    pub status: String,
+    pub reservation_id: Uuid,
+    pub event_id: String,
+    pub user_name: String,
+    #[serde(with = "time::serde::iso8601")]
+    pub verified_at: OffsetDateTime,
+}
+
 
