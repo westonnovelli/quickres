@@ -4,7 +4,6 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use serde_json::json;
 use tower_http::{
     cors::CorsLayer,
     trace::TraceLayer,
@@ -18,13 +17,11 @@ mod db;
 mod email;
 mod error;
 mod models;
+mod api;
 
 use db::{Database, DatabaseError};
-use email::{send_confirmation, send_verification, EmailError};
+use email::{EmailError};
 use error::AppError;
-use models::{CreateReservationRequest, CreateReservationResponse, EmailVerificationResponse};
-
-use crate::models::{EventResponse, RetrieveReservationResponse};
 
 // Email sender component
 #[derive(Clone, Debug)]
@@ -42,11 +39,11 @@ impl EmailSender {
     }
     
     async fn send_verification(&self, email: &str, token: &str) -> Result<(), EmailError> {
-        send_verification(email, token).await
+        email::send_verification(email, token).await
     }
     
-    async fn send_confirmation<State>(&self, email: &str, reservation: &db::Reservation<State>) -> Result<(), EmailError> {
-        send_confirmation(email, reservation).await
+    async fn send_confirmation(&self, email: &str, reservation: &models::ConfirmedReservation) -> Result<(), EmailError> {
+        email::send_confirmation(email, reservation).await
     }
 }
 
@@ -57,18 +54,17 @@ struct AppState {
     email_sender: EmailSender,
 }
 
-// Note: AppError is now defined in error.rs module
-
 // Route handlers
-
-async fn get_event(
+async fn get_event_by_id(
     Path(event_id): Path<String>,
     State(state): State<AppState>,
-) -> Result<Json<EventResponse>, AppError> {
-    let db = Database { pool: state.pool.clone() };
-    let event = db.get_event_by_string_id(&event_id).await?;
+) -> Result<Json<api::OpenEventResponse>, AppError> {
+    let event_id = Uuid::parse_str(&event_id).map_err(|_| AppError::not_found())?;
 
-    let response = EventResponse {
+    let db = Database { pool: state.pool.clone() };
+    let event = db.get_open_event_by_id(&event_id).await?;
+
+    let response = api::OpenEventResponse {
         id: event.id,
         name: event.name,
         description: event.description,
@@ -78,6 +74,7 @@ async fn get_event(
         location: event.location,
         created_at: event.created_at,
         updated_at: event.updated_at,
+        status: api::EventStatus::Open,
     };
     
     Ok(Json(response))
@@ -85,16 +82,15 @@ async fn get_event(
 
 async fn reserve(
     State(state): State<AppState>,
-    Json(payload): Json<CreateReservationRequest>,
-) -> Result<Json<CreateReservationResponse>, AppError> {
+    Json(payload): Json<api::ReserveRequest>,
+) -> Result<Json<api::ReserveResponse>, AppError> {
     // Validate payload using the From<ValidationErrors> implementation
     payload.validate()?;
     
-    let event_id_str = payload.event_id.to_string();
+    let db = Database { pool: state.pool.clone() };
     
     // Check if event exists and has capacity
-    let db = Database { pool: state.pool.clone() };
-    let event = db.get_event_by_string_id(&event_id_str).await?;
+    let event = db.get_open_event_by_id(&payload.event_id).await?;
     let current_count = db.count_event_reservations(&event.id).await?;
     
     if current_count >= event.capacity {
@@ -110,8 +106,8 @@ async fn reserve(
     let reservation_token = format!("{}-{}", verification_token, magic_link_token);
     
     // Insert pending reservation
-    let reservation = db.insert_reservation_with_string_event_id(
-        &event_id_str,
+    let reservation = db.insert_reservation(
+        &payload.event_id,
         &payload.user_name,
         &payload.user_email,
         &reservation_token,
@@ -120,9 +116,9 @@ async fn reserve(
     // Send verification email
     state.email_sender.send_verification(&payload.user_email, &verification_token).await?;
     
-    let response = CreateReservationResponse {
-        id: reservation.id,
-        status: reservation.status(),
+    let response = api::ReserveResponse {
+        reservation_id: reservation.id,
+        status: reservation.status.into(),  
     };
     
     Ok(Json(response))
@@ -131,55 +127,39 @@ async fn reserve(
 async fn verify_email(
     Path(token): Path<String>,
     State(state): State<AppState>,
-) -> Result<Json<EmailVerificationResponse>, AppError> {
+) -> Result<Json<api::VerifyEmailResponse>, AppError> {
     let db = Database { pool: state.pool.clone() };
     
     // Find pending reservation by token
     let pending_reservation = match db.get_pending_reservation_by_token(&token).await {
         Ok(res) => res,
         Err(_) => {
-            // If not found, try to find by token prefix (verification part)
-            let row = sqlx::query_as::<_, db::ReservationRow>(
-                "SELECT * FROM reservations WHERE reservation_token LIKE ? AND status = 'pending'"
-            )
-            .bind(format!("{}%", token))
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(DatabaseError::from)?
-            .ok_or_else(|| {
-                // Check if there's already a confirmed reservation with this token
-                let _ = sqlx::query(
-                    "SELECT 1 FROM reservations WHERE reservation_token LIKE ? AND status = 'confirmed'"
-                )
-                .bind(format!("{}%", token))
-                .fetch_optional(&state.pool);
-                
-                AppError::Validation("Reservation not found or already confirmed".to_string())
-            })?;
-            
-            db::PendingReservation::from(row)
+            match db.get_pending_reservation_by_token(&token).await {
+                Ok(_) =>{
+                    return Err(AppError::Validation("Reservation already confirmed".to_string()));
+                }
+                Err(_) => {
+                    return Err(AppError::not_found());
+                }   
+            }
         }
     };
     
     // Store data before moving the reservation into confirm_reservation
-    let reservation_id = pending_reservation.id;
-    let event_id = pending_reservation.event_id;
-    let user_name = pending_reservation.user_name.clone();
     let user_email = pending_reservation.user_email.clone();
+    let event_id = pending_reservation.event_id;
+    let reservation_id = pending_reservation.id;
     
     // Confirm the reservation using type-safe state transition
     let confirmed_reservation = db.confirm_reservation(pending_reservation).await?;
     
     // Send confirmation email
     state.email_sender.send_confirmation(&user_email, &confirmed_reservation).await?;
-    
-    let response = EmailVerificationResponse {
-        message: "Reservation confirmed successfully".to_string(),
-        status: confirmed_reservation.status(),
-        reservation_id,
+
+    let response = api::VerifyEmailResponse {
         event_id,
-        user_name,
-        verified_at: confirmed_reservation.verified_at.unwrap_or(confirmed_reservation.updated_at),
+        reservation_id,
+        verified_at: confirmed_reservation.status.verified_at,
     };
     
     Ok(Json(response))
@@ -187,7 +167,7 @@ async fn verify_email(
 
 async fn generate_random_event(
     State(state): State<AppState>,
-) -> Result<Json<EventResponse>, AppError> {
+) -> Result<Json<api::OpenEventResponse>, AppError> {
     let db = Database { pool: state.pool.clone() };
     
     // Generate random event data
@@ -253,7 +233,7 @@ async fn generate_random_event(
         location.as_deref(),
     ).await?;
     
-    let response = EventResponse {
+    let response = api::OpenEventResponse {
         id: event.id,
         name: event.name,
         description: event.description,
@@ -263,6 +243,7 @@ async fn generate_random_event(
         location: event.location,
         created_at: event.created_at,
         updated_at: event.updated_at,
+        status: api::EventStatus::Open,
     };
     
     Ok(Json(response))
@@ -271,47 +252,33 @@ async fn generate_random_event(
 async fn get_reservation_by_magic_token(
     Path(magic_token): Path<String>,
     State(state): State<AppState>,
-) -> Result<Json<RetrieveReservationResponse>, AppError> {
+) -> Result<Json<api::RetrieveReservationResponse>, AppError> {
     let db = Database { pool: state.pool.clone() };
     
     // First, try to find a confirmed reservation by exact token match
     let confirmed_reservation = match db.get_confirmed_reservation_by_token(&magic_token).await {
         Ok(confirmed) => confirmed,
         Err(_) => {
-            // If not found by exact match, try to find by token suffix (magic link part)
-            // But still only look for confirmed reservations
-            let row = sqlx::query_as::<_, db::ReservationRow>(
-                "SELECT * FROM reservations WHERE reservation_token LIKE ? AND status = 'confirmed'"
-            )
-            .bind(format!("%{}", magic_token))
-            .fetch_optional(&state.pool)
+            db.get_pending_reservation_by_token(&magic_token)
             .await
-            .map_err(DatabaseError::from)?
-            .ok_or_else(|| {
-                // Check if there's a pending reservation with this token to give a helpful error
-                let _ = sqlx::query(
-                    "SELECT 1 FROM reservations WHERE reservation_token LIKE ? AND status = 'pending'"
-                )
-                .bind(format!("%{}", magic_token))
-                .fetch_optional(&state.pool);
-                
-                AppError::Validation("Reservation must be confirmed before it can be retrieved. Please check your email for the verification link.".to_string())
-            })?;
+            .map_err(DatabaseError::from)?;
             
-            db::ConfirmedReservation::from(row)
+            return Err(AppError::Validation("Reservation must be confirmed before it can be retrieved. Please check your email for the verification link.".to_string()));
         }
     };
     
-    let response = RetrieveReservationResponse {
-        id: confirmed_reservation.id,
-        event_id: confirmed_reservation.event_id,
-        user_name: confirmed_reservation.user_name.clone(),
-        user_email: confirmed_reservation.user_email.clone(),
-        status: confirmed_reservation.status(),
-        reservation_token: confirmed_reservation.reservation_token.clone(),
+    let response = api::RetrieveReservationResponse {
+        reservation_id: confirmed_reservation.id,
+        user_name: confirmed_reservation.user_name,
+        user_email: confirmed_reservation.user_email,
+        created_at: confirmed_reservation.created_at,
+        updated_at: confirmed_reservation.updated_at,
+        verified_at: Some(confirmed_reservation.status.verified_at),
+        status: confirmed_reservation.status.into(),
+        reservation_token: confirmed_reservation.reservation_token,
         event: {
-            let event = db.get_event_by_id(&confirmed_reservation.event_id).await?;
-            EventResponse {
+            let event = db.get_open_event_by_id(&confirmed_reservation.event_id).await?;
+            api::RetrieveReservationEventResponse {
                 id: event.id,
                 name: event.name,
                 description: event.description,
@@ -319,8 +286,6 @@ async fn get_reservation_by_magic_token(
                 end_time: event.end_time,
                 capacity: event.capacity,
                 location: event.location,
-                created_at: event.created_at,
-                updated_at: event.updated_at,
             }
         },
     };  
@@ -354,7 +319,7 @@ async fn main() -> shuttle_axum::ShuttleAxum {
     let router = Router::new()
         .route("/", get(hello_world))
         .route("/events/new", post(generate_random_event))
-        .route("/events/{id}", get(get_event))
+        .route("/events/{id}", get(get_event_by_id))
         .route("/reserve", post(reserve))
         .route("/verify/{token}", get(verify_email))
         .route("/retrieve/{magic_token}", get(get_reservation_by_magic_token))

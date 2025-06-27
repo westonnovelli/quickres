@@ -9,7 +9,8 @@ CREATE TABLE events (
     capacity INTEGER NOT NULL,
     available_spots INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    status TEXT NOT NULL DEFAULT 'open'
 );
 
 -- Create index on commonly queried fields

@@ -1,130 +1,97 @@
-use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use time::OffsetDateTime;
 use uuid::Uuid;
-use validator::Validate;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub enum ReservationStatus {
-    Confirmed,
-    Pending,
-    Cancelled,
-}
+use crate::api;
 
-// API Models - Used for external interfaces, validation, and serialization
-// These are separate from database models to allow independent evolution
+#[derive(Debug, Clone)]
+pub struct Open;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Event {
+#[derive(Debug, Clone)]
+pub struct Full;
+
+#[derive(Debug, Clone)]
+pub struct Finished;
+
+#[derive(Debug)]
+pub struct Event<State> {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
-    #[serde(with = "time::serde::rfc3339")]
-    pub start_time: OffsetDateTime,
-    #[serde(with = "time::serde::rfc3339")]
-    pub end_time: OffsetDateTime,
-    pub capacity: i32,
-    pub location: Option<String>,
-    #[serde(with = "time::serde::rfc3339")]
-    pub created_at: OffsetDateTime,
-    #[serde(with = "time::serde::rfc3339")]
-    pub updated_at: OffsetDateTime,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Reservation {
-    pub id: Uuid,
-    pub event_id: Uuid,
-    pub user_name: String,
-    pub user_email: String,
-    pub status: ReservationStatus,
-    pub reservation_token: String,
-    #[serde(with = "time::serde::rfc3339")]
-    pub created_at: OffsetDateTime,
-    #[serde(with = "time::serde::rfc3339")]
-    pub updated_at: OffsetDateTime,
-}
-
-#[derive(Debug, Serialize, Deserialize, Validate)]
-#[validate(schema(function = "validate_event_times", message = "End time must be after start time"))]
-pub struct CreateEventRequest {
-    #[validate(length(min = 1, max = 255, message = "Event name must be between 1 and 255 characters"))]
-    pub name: String,
-    #[validate(length(max = 1000, message = "Description must be less than 1000 characters"))]
-    pub description: Option<String>,
-    #[validate(length(max = 255, message = "Location must be less than 255 characters"))]
-    pub location: Option<String>,
-    #[validate(range(min = 1, max = 10000, message = "Capacity must be between 1 and 10000"))]
-    pub capacity: i32,
     pub start_time: OffsetDateTime,
     pub end_time: OffsetDateTime,
+    pub capacity: u32,
+    pub location: Option<String>,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
+    pub status: State,
 }
 
-// Custom validation function for event times
-fn validate_event_times(event: &CreateEventRequest) -> Result<(), validator::ValidationError> {
-    if event.end_time <= event.start_time {
-        return Err(validator::ValidationError::new("invalid_time_range"));
+pub type OpenEvent = Event<Open>;
+pub type FullEvent = Event<Full>;
+
+
+#[derive(Debug, Clone)]
+pub struct Pending;
+
+impl From<Pending> for api::ReservationStatus {
+    fn from(_status: Pending) -> Self {
+        api::ReservationStatus::Pending
     }
-    Ok(())
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateEventResponse {
-    pub id: Uuid,
+impl Display for Pending {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Pending")
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize, Validate)]
-pub struct CreateReservationRequest {
-    pub event_id: Uuid,
-    #[validate(length(min = 1, max = 255, message = "User name must be between 1 and 255 characters"))]
-    pub user_name: String,
-    #[validate(email(message = "Please provide a valid email address"))]
-    pub user_email: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateReservationResponse {
-    pub id: Uuid,
-    pub status: ReservationStatus,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct EmailVerificationResponse {
-    pub message: String,
-    pub status: ReservationStatus,
-    pub reservation_id: Uuid,
-    pub event_id: Uuid,
-    pub user_name: String,
-    #[serde(with = "time::serde::iso8601")]
+#[derive(Debug, Clone)]
+pub struct Confirmed {
     pub verified_at: OffsetDateTime,
 }
 
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct EventResponse {
-    pub id: Uuid,
-    pub name: String,
-    pub description: Option<String>,
-    pub location: Option<String>,
-    #[serde(with = "time::serde::iso8601")]
-    pub start_time: OffsetDateTime,
-    #[serde(with = "time::serde::iso8601")]
-    pub end_time: OffsetDateTime,
-    pub capacity: i32,
-    #[serde(with = "time::serde::iso8601")]
-    pub created_at: OffsetDateTime,
-    #[serde(with = "time::serde::iso8601")]
-    pub updated_at: OffsetDateTime,
+impl From<Confirmed> for api::ReservationStatus {
+    fn from(_status: Confirmed) -> Self {
+        api::ReservationStatus::Confirmed
+    }
 }
 
+impl Display for Confirmed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Confirmed")
+    }
+}
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RetrieveReservationResponse {
+// Generic reservation with type-state
+#[derive(Debug)]
+pub struct Reservation<State> where State: Display {
     pub id: Uuid,
     pub event_id: Uuid,
-    pub event: EventResponse,
     pub user_name: String,
     pub user_email: String,
-    pub status: ReservationStatus,
     pub reservation_token: String,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
+    pub status: State,
 }
 
+// Type aliases for specific states
+pub type PendingReservation = Reservation<Pending>;
+pub type ConfirmedReservation = Reservation<Confirmed>;
+
+impl PendingReservation {
+    /// Confirm a pending reservation
+    pub fn confirm(self) -> Reservation<Confirmed> {
+        Reservation {
+            id: self.id,
+            event_id: self.event_id,
+            user_name: self.user_name,
+            user_email: self.user_email,
+            reservation_token: self.reservation_token,
+            created_at: self.created_at,
+            updated_at: OffsetDateTime::now_utc(),
+            status: Confirmed { verified_at: OffsetDateTime::now_utc() },
+        }
+    }
+}
