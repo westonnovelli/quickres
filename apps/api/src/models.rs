@@ -70,7 +70,8 @@ pub struct Reservation<State> where State: Display {
     pub event_id: Uuid,
     pub user_name: String,
     pub user_email: String,
-    pub reservation_token: String,
+    pub verification_token: String, // used the verify the email
+    pub reservation_token: String, // used for "scanning the reservation" and "checking into the event", this should only ever happen once. (may want some admin correction escape hatch tho)
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
     pub status: State,

@@ -113,6 +113,7 @@ async fn reserve(
         &reservation_token,
     ).await?;
     
+    // TODO: change the payload here to send a verification token, not the reservation token. 
     // Send verification email
     state.email_sender.send_verification(&payload.user_email, &verification_token).await?;
     
