@@ -142,6 +142,18 @@ mod tests {
         env::remove_var("APP_NAME");
         env::remove_var("PORT");
         env::remove_var("EMAIL_PROVIDER");
+        env::remove_var("APP_ENVIRONMENT");
+        env::remove_var("EMAIL_FROM");
+        env::remove_var("EMAIL_FROM_NAME");
+        env::remove_var("JWT_SECRET");
+        env::remove_var("SESSION_SECRET");
+        env::remove_var("RATE_LIMIT_REQUESTS_PER_MINUTE");
+        env::remove_var("RATE_LIMIT_BURST");
+        env::remove_var("LOG_LEVEL");
+        env::remove_var("LOG_FORMAT");
+        env::remove_var("CORS_ALLOWED_ORIGINS");
+        env::remove_var("CORS_ALLOWED_METHODS");
+        env::remove_var("CORS_ALLOWED_HEADERS");
         
         let config = Config::from_env().unwrap();
         
@@ -154,6 +166,26 @@ mod tests {
 
     #[test]
     fn test_config_from_env_with_custom_values() {
+        // Clear all environment variables first
+        env::remove_var("DATABASE_URL");
+        env::remove_var("BASE_URL");
+        env::remove_var("APP_NAME");
+        env::remove_var("PORT");
+        env::remove_var("EMAIL_PROVIDER");
+        env::remove_var("APP_ENVIRONMENT");
+        env::remove_var("EMAIL_FROM");
+        env::remove_var("EMAIL_FROM_NAME");
+        env::remove_var("JWT_SECRET");
+        env::remove_var("SESSION_SECRET");
+        env::remove_var("RATE_LIMIT_REQUESTS_PER_MINUTE");
+        env::remove_var("RATE_LIMIT_BURST");
+        env::remove_var("LOG_LEVEL");
+        env::remove_var("LOG_FORMAT");
+        env::remove_var("CORS_ALLOWED_ORIGINS");
+        env::remove_var("CORS_ALLOWED_METHODS");
+        env::remove_var("CORS_ALLOWED_HEADERS");
+        
+        // Set custom values
         env::set_var("DATABASE_URL", "sqlite:test.db");
         env::set_var("BASE_URL", "https://example.com");
         env::set_var("APP_NAME", "Test App");
@@ -175,6 +207,30 @@ mod tests {
 
     #[test]
     fn test_smtp_config() {
+        // Clear all environment variables first
+        env::remove_var("DATABASE_URL");
+        env::remove_var("BASE_URL");
+        env::remove_var("APP_NAME");
+        env::remove_var("PORT");
+        env::remove_var("EMAIL_PROVIDER");
+        env::remove_var("APP_ENVIRONMENT");
+        env::remove_var("EMAIL_FROM");
+        env::remove_var("EMAIL_FROM_NAME");
+        env::remove_var("JWT_SECRET");
+        env::remove_var("SESSION_SECRET");
+        env::remove_var("RATE_LIMIT_REQUESTS_PER_MINUTE");
+        env::remove_var("RATE_LIMIT_BURST");
+        env::remove_var("LOG_LEVEL");
+        env::remove_var("LOG_FORMAT");
+        env::remove_var("CORS_ALLOWED_ORIGINS");
+        env::remove_var("CORS_ALLOWED_METHODS");
+        env::remove_var("CORS_ALLOWED_HEADERS");
+        env::remove_var("SMTP_HOST");
+        env::remove_var("SMTP_PORT");
+        env::remove_var("SMTP_USERNAME");
+        env::remove_var("SMTP_PASSWORD");
+        env::remove_var("SMTP_TLS");
+        
         env::set_var("EMAIL_PROVIDER", "smtp");
         env::set_var("SMTP_HOST", "smtp.example.com");
         env::set_var("SMTP_PORT", "465");
@@ -199,6 +255,25 @@ mod tests {
 
     #[test]
     fn test_environment_detection() {
+        // Clear all environment variables first
+        env::remove_var("DATABASE_URL");
+        env::remove_var("BASE_URL");
+        env::remove_var("APP_NAME");
+        env::remove_var("PORT");
+        env::remove_var("EMAIL_PROVIDER");
+        env::remove_var("APP_ENVIRONMENT");
+        env::remove_var("EMAIL_FROM");
+        env::remove_var("EMAIL_FROM_NAME");
+        env::remove_var("JWT_SECRET");
+        env::remove_var("SESSION_SECRET");
+        env::remove_var("RATE_LIMIT_REQUESTS_PER_MINUTE");
+        env::remove_var("RATE_LIMIT_BURST");
+        env::remove_var("LOG_LEVEL");
+        env::remove_var("LOG_FORMAT");
+        env::remove_var("CORS_ALLOWED_ORIGINS");
+        env::remove_var("CORS_ALLOWED_METHODS");
+        env::remove_var("CORS_ALLOWED_HEADERS");
+        
         env::set_var("APP_ENVIRONMENT", "production");
         let config = Config::from_env().unwrap();
         assert!(config.is_production());

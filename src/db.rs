@@ -21,7 +21,7 @@ pub enum DatabaseError {
 
 #[derive(Debug, sqlx::FromRow)]
 struct EventRow {
-    id: Uuid,
+    id: String,  // Store UUID as TEXT in SQLite
     name: String,
     description: Option<String>,
     start_time: OffsetDateTime,
@@ -36,7 +36,7 @@ struct EventRow {
 impl From<EventRow> for models::Event<models::Open> {
     fn from(row: EventRow) -> Self {
         models::Event {
-            id: row.id,
+            id: Uuid::parse_str(&row.id).expect("Invalid UUID in database"),
             name: row.name,
             description: row.description,
             start_time: row.start_time,
@@ -54,7 +54,7 @@ impl From<EventRow> for models::Event<models::Full> {
 
     fn from(row: EventRow) -> Self {
         models::Event {
-            id: row.id,
+            id: Uuid::parse_str(&row.id).expect("Invalid UUID in database"),
             name: row.name,
             description: row.description,
             start_time: row.start_time,
@@ -70,8 +70,8 @@ impl From<EventRow> for models::Event<models::Full> {
 
 #[derive(Debug, sqlx::FromRow)]
 struct ReservationRow {
-    id: Uuid,
-    event_id: Uuid,
+    id: String,  // Store UUID as TEXT in SQLite
+    event_id: String,  // Store UUID as TEXT in SQLite
     user_name: String,
     user_email: String,
     status: String,
@@ -87,8 +87,8 @@ struct ReservationRow {
 impl From<ReservationRow> for models::PendingReservation {
     fn from(row: ReservationRow) -> Self {
         models::Reservation {
-            id: row.id,
-            event_id: row.event_id,
+            id: Uuid::parse_str(&row.id).expect("Invalid UUID in database"),
+            event_id: Uuid::parse_str(&row.event_id).expect("Invalid UUID in database"),
             user_name: row.user_name,
             user_email: row.user_email,
             reservation_token: row.reservation_token,
@@ -102,8 +102,8 @@ impl From<ReservationRow> for models::PendingReservation {
 impl From<ReservationRow> for models::ConfirmedReservation {
     fn from(row: ReservationRow) -> Self {
         models::Reservation {
-            id: row.id,
-            event_id: row.event_id,
+            id: Uuid::parse_str(&row.id).expect("Invalid UUID in database"),
+            event_id: Uuid::parse_str(&row.event_id).expect("Invalid UUID in database"),
             user_name: row.user_name,
             user_email: row.user_email,
             reservation_token: row.reservation_token,
@@ -136,63 +136,19 @@ impl Database {
         
         let pool = SqlitePool::connect(&database_url).await?;
         
-        // Run migrations to ensure tables exist
-        Self::run_migrations(&pool).await?;
+        // Ensure you have run the necessary SQL migrations before launching the application.
+        // You can use `sqlx migrate run` or initialize migrations during the application start-up using `sqlx::migrate!()` macro.
         
         Ok(Database { pool })
     }
 
-    /// Initialize database tables
-    /// TODO have 1 version of migrations...
-    async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
-        // Create events table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS events (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                description TEXT,
-                start_time INTEGER NOT NULL,
-                end_time INTEGER NOT NULL,
-                capacity INTEGER NOT NULL,
-                location TEXT,
-                created_at INTEGER NOT NULL,
-                updated_at INTEGER NOT NULL
-            )
-            "#
-        )
-        .execute(pool)
-        .await?;
-
-        // Create reservations table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS reservations (
-                id TEXT PRIMARY KEY,
-                event_id TEXT NOT NULL,
-                user_name TEXT NOT NULL,
-                user_email TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'pending',
-                reservation_token TEXT NOT NULL UNIQUE,
-                created_at INTEGER NOT NULL,
-                updated_at INTEGER NOT NULL,
-                verified_at INTEGER,
-                FOREIGN KEY (event_id) REFERENCES events (id)
-            )
-            "#
-        )
-        .execute(pool)
-        .await?;
-
-        Ok(())
-    }
 
     /// Look up an event by ID
     pub async fn get_open_event_by_id(&self, event_id: &Uuid) -> Result<models::OpenEvent, DatabaseError> {
         let event = sqlx::query_as::<_, EventRow>(
-            "SELECT * FROM events WHERE id = ? AND status = 'open'"
+"SELECT id, name, description, start_time, end_time, capacity, location, status, created_at, updated_at FROM events WHERE id = ? AND status = 'open'"
         )
-        .bind(event_id)
+        .bind(event_id.to_string())
         .fetch_optional(&self.pool)
         .await?
         .ok_or(DatabaseError::EventNotFound)?;
@@ -203,7 +159,7 @@ impl Database {
     /// Get all events
     pub async fn get_all_open_events(&self) -> Result<Vec<models::OpenEvent>, DatabaseError> {
         let events = sqlx::query_as::<_, EventRow>(
-            "SELECT * FROM events WHERE status = 'open' ORDER BY start_time ASC"
+"SELECT id, name, description, start_time, end_time, capacity, location, status, created_at, updated_at FROM events WHERE status = 'open' ORDER BY start_time ASC"
         )
         .fetch_all(&self.pool)
         .await?;
@@ -228,8 +184,8 @@ impl Database {
             VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)
             "#
         )
-        .bind(&reservation_id)
-        .bind(event_id)
+        .bind(reservation_id.to_string())
+        .bind(event_id.to_string())
         .bind(user_name)
         .bind(user_email)
         .bind(reservation_token)
@@ -247,7 +203,7 @@ impl Database {
         let count: u32 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM reservations WHERE event_id = ? AND status = 'confirmed'"
         )
-        .bind(event_id)
+        .bind(event_id.to_string())
         .fetch_one(&self.pool)
         .await?;
 
@@ -257,9 +213,9 @@ impl Database {
     /// Get pending reservation by ID
     pub async fn get_pending_reservation_by_id(&self, reservation_id: &Uuid) -> Result<models::PendingReservation, DatabaseError> {
         let row = sqlx::query_as::<_, ReservationRow>(
-            "SELECT * FROM reservations WHERE id = ? AND status = 'pending'"
+"SELECT id, event_id, user_name, user_email, status, reservation_token, created_at, updated_at, verified_at FROM reservations WHERE id = ? AND status = 'pending'"
         )
-        .bind(reservation_id)
+        .bind(reservation_id.to_string())
         .fetch_optional(&self.pool)
         .await?
         .ok_or(DatabaseError::ReservationNotFound)?;
@@ -270,9 +226,9 @@ impl Database {
     /// Get confirmed reservation by ID
     pub async fn get_confirmed_reservation_by_id(&self, reservation_id: &Uuid) -> Result<models::ConfirmedReservation, DatabaseError> {
         let row = sqlx::query_as::<_, ReservationRow>(
-            "SELECT * FROM reservations WHERE id = ? AND status = 'confirmed'"
+"SELECT id, event_id, user_name, user_email, status, reservation_token, created_at, updated_at, verified_at FROM reservations WHERE id = ? AND status = 'confirmed'"
         )
-        .bind(reservation_id)
+        .bind(reservation_id.to_string())
         .fetch_optional(&self.pool)
         .await?
         .ok_or(DatabaseError::ReservationNotFound)?;
@@ -283,7 +239,7 @@ impl Database {
     /// Get pending reservation by token
     pub async fn get_pending_reservation_by_token(&self, token: &str) -> Result<models::PendingReservation, DatabaseError> {
         let row = sqlx::query_as::<_, ReservationRow>(
-            "SELECT * FROM reservations WHERE reservation_token = ? AND status = 'pending'"
+            "SELECT id, event_id, user_name, user_email, status, reservation_token, created_at, updated_at, verified_at FROM reservations WHERE reservation_token = ? AND status = 'pending'"
         )
         .bind(token)
         .fetch_optional(&self.pool)
@@ -296,7 +252,7 @@ impl Database {
     /// Get confirmed reservation by token
     pub async fn get_confirmed_reservation_by_token(&self, token: &str) -> Result<models::ConfirmedReservation, DatabaseError> {
         let row = sqlx::query_as::<_, ReservationRow>(
-            "SELECT * FROM reservations WHERE reservation_token = ? AND status = 'confirmed'"
+            "SELECT id, event_id, user_name, user_email, status, reservation_token, created_at, updated_at, verified_at FROM reservations WHERE reservation_token = ? AND status = 'confirmed'"
         )
         .bind(token)
         .fetch_optional(&self.pool)
@@ -333,7 +289,7 @@ impl Database {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
             "#
         )
-        .bind(&event_id)
+        .bind(event_id.to_string())
         .bind(name)
         .bind(description)
         .bind(start_time)
@@ -371,11 +327,11 @@ impl Database {
     }
 
     /// Check event capacity with string ID
-    // pub async fn check_event_capacity_with_string_id(&self, event_id: &str) -> Result<bool, DatabaseError> {
-    //     let uuid = Uuid::parse_str(event_id)
-    //         .map_err(|_| DatabaseError::EventNotFound)?;
-    //     self.check_event_capacity(&uuid).await
-    // }
+pub async fn check_event_capacity_with_string_id(&self, event_id: &str) -> Result<bool, DatabaseError> {
+        let uuid = Uuid::parse_str(event_id)
+            .map_err(|_| DatabaseError::EventNotFound)?;
+        self.check_open_event_capacity(&uuid).await
+    }
 
     /// Confirm a pending reservation (type-safe state transition)
     pub async fn confirm_reservation(&self, pending: models::PendingReservation) -> Result<models::ConfirmedReservation, DatabaseError> {
@@ -386,7 +342,7 @@ impl Database {
         )
         .bind(confirmed.updated_at)
         .bind(confirmed.status.verified_at)
-        .bind(&confirmed.id)
+        .bind(confirmed.id.to_string())
         .execute(&self.pool)
         .await?;
 
@@ -426,7 +382,7 @@ impl Database {
     // Get any reservation by token with dynamic typing
     // pub async fn get_reservation_by_token_any(&self, token: &str) -> Result<models::ReservationRow, DatabaseError> {
     //     let row = sqlx::query_as::<_, ReservationRow>(
-    //         "SELECT * FROM reservations WHERE reservation_token = ?"
+    //         "SELECT id, event_id, user_name, user_email, status, reservation_token, created_at, updated_at, verified_at FROM reservations WHERE reservation_token = ?"
     //     )
     //     .bind(token)
     //     .fetch_optional(&self.pool)
@@ -448,6 +404,12 @@ mod tests {
         env::set_var("DATABASE_URL", "sqlite::memory:");
         
         let db = Database::new().await.unwrap();
+        
+        // Run migrations for test database
+        sqlx::migrate!("./migrations")
+            .run(&db.pool)
+            .await
+            .expect("Failed to run migrations");
         
         // Test event creation
         let start_time = OffsetDateTime::now_utc() + Duration::hours(1);
