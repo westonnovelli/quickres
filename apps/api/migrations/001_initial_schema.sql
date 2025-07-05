@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     
     -- Reservation Management
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'cancelled')),
+    verification_token TEXT NOT NULL,
     reservation_token TEXT NOT NULL,
     
     -- Audit Fields (stored as INTEGER for Unix epoch timestamps)
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     
     -- Business Logic Constraints
     UNIQUE(event_id, user_email),        -- One reservation per user per event
+    UNIQUE(verification_token),          -- Globally unique tokens
     UNIQUE(reservation_token),           -- Globally unique tokens
     CHECK (created_at > 0),              -- Valid timestamp
     CHECK (updated_at > 0),              -- Valid timestamp

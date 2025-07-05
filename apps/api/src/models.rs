@@ -90,6 +90,7 @@ impl PendingReservation {
             user_name: self.user_name,
             user_email: self.user_email,
             reservation_token: self.reservation_token,
+            verification_token: self.verification_token,
             created_at: self.created_at,
             updated_at: OffsetDateTime::now_utc(),
             status: Confirmed { verified_at: OffsetDateTime::now_utc() },

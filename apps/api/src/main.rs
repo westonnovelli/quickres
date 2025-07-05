@@ -111,6 +111,7 @@ async fn reserve(
         &payload.user_name,
         &payload.user_email,
         &reservation_token,
+        &verification_token,
     ).await?;
     
     // TODO: change the payload here to send a verification token, not the reservation token. 
