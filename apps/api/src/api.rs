@@ -14,7 +14,9 @@ pub struct OpenEventRequest {
     pub location: Option<String>,
     #[validate(range(min = 1, max = 10000, message = "Capacity must be between 1 and 10000"))]
     pub capacity: u32,
+    #[serde(with = "time::serde::iso8601")]
     pub start_time: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
     pub end_time: OffsetDateTime,
 }
 
@@ -38,11 +40,15 @@ pub struct OpenEventResponse {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
+    #[serde(with = "time::serde::iso8601")]
     pub start_time: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
     pub end_time: OffsetDateTime,
     pub capacity: u32,
     pub location: Option<String>,
+    #[serde(with = "time::serde::iso8601")]
     pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
     pub updated_at: OffsetDateTime,
     pub status: EventStatus,
 }
@@ -67,6 +73,7 @@ pub struct ReserveResponse {
 pub struct VerifyEmailResponse {
     pub event_id: Uuid,
     pub reservation_id: Uuid,
+    #[serde(with = "time::serde::iso8601")]
     pub verified_at: OffsetDateTime,
 }
 
@@ -77,15 +84,17 @@ pub enum ReservationStatus {
 }
 
 #[derive(Debug, Serialize)]
-
 pub struct RetrieveReservationResponse {
     pub reservation_id: Uuid,
     pub user_name: String,
     pub user_email: String,
     pub status: ReservationStatus,
     pub reservation_token: String,
+    #[serde(with = "time::serde::iso8601")]
     pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
     pub updated_at: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601::option")]
     pub verified_at: Option<OffsetDateTime>,
     pub event: RetrieveReservationEventResponse,
 }
@@ -95,7 +104,9 @@ pub struct RetrieveReservationEventResponse {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
+    #[serde(with = "time::serde::iso8601")]
     pub start_time: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
     pub end_time: OffsetDateTime,
     pub capacity: u32,
     pub location: Option<String>,

@@ -20,6 +20,7 @@ pub async fn send_verification(email: &str, token: &str) -> Result<(), EmailErro
     }
 
     // Get configuration from environment variables
+    // TODO: make sure url is for the web-ui
     let base_url = env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:8000".to_string());
     let email_from = env::var("EMAIL_FROM").unwrap_or_else(|_| "noreply@quick-res.example.com".to_string());
     let email_from_name = env::var("EMAIL_FROM_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());

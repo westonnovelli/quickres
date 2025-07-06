@@ -184,8 +184,8 @@ impl Database {
 
         sqlx::query(
             r#"
-            INSERT INTO reservations (id, event_id, user_name, user_email, status, reservation_token, verification_token, created_at, updated_at)
-            VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)
+            INSERT INTO reservations (id, event_id, user_name, user_email, status, reservation_token, verification_token, created_at, updated_at, verified_at)
+            VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, NULL)
             "#
         )
         .bind(reservation_id.to_string())
@@ -198,6 +198,8 @@ impl Database {
         .bind(now)
         .execute(&self.pool)
         .await?;
+
+        // TODO handle duplicate email error and surface to UI
 
         // Fetch the inserted reservation
         self.get_pending_reservation_by_id(&reservation_id).await
