@@ -37,9 +37,9 @@ const ReservationConfirmation: React.FC = () => {
 				</p>
 				
 				{finalReservationId && (
-					<div className="bg-gray-50 rounded-md p-4 mb-6">
-						<p className="text-sm text-gray-500">Reservation ID</p>
-						<p className="text-md font-mono text-gray-900">{finalReservationId}</p>
+					<div className="bg-gray-50 rounded-md p-2 mb-6">
+						<p className="text-xs text-gray-500">Reservation ID</p>
+						<p className="text-sm font-mono text-gray-900">{finalReservationId}</p>
 					</div>
 				)}
 				

@@ -244,7 +244,36 @@ impl Database {
     }
 
     /// Get pending reservation by token
-    pub async fn get_pending_reservation_by_token(&self, token: &str) -> Result<models::PendingReservation, DatabaseError> {
+    pub async fn get_pending_reservation_by_verification_token(&self, token: &str) -> Result<models::PendingReservation, DatabaseError> {
+        println!("Getting pending reservation by token: {}", token);
+        let row = sqlx::query_as::<_, ReservationRow>(
+            "SELECT id, event_id, user_name, user_email, status, reservation_token, verification_token, created_at, updated_at, verified_at FROM reservations WHERE verification_token = ? AND status = 'pending'"
+        )
+        .bind(token)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(DatabaseError::ReservationNotFound)?;
+
+        Ok(models::PendingReservation::from(row))
+    }
+
+    /// Get confirmed reservation by token
+    pub async fn get_confirmed_reservation_by_verification_token(&self, token: &str) -> Result<models::ConfirmedReservation, DatabaseError> {
+        let row = sqlx::query_as::<_, ReservationRow>(
+            "SELECT id, event_id, user_name, user_email, status, reservation_token, verification_token, created_at, updated_at, verified_at FROM reservations WHERE verification_token = ? AND status = 'confirmed'"
+        )
+        .bind(token)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(DatabaseError::ReservationNotFound)?;
+
+        Ok(models::ConfirmedReservation::from(row))
+    }
+
+    // TODO maket this an enum thing
+     /// Get pending reservation by token
+     pub async fn get_pending_reservation_by_reservation_token(&self, token: &str) -> Result<models::PendingReservation, DatabaseError> {
+        println!("Getting pending reservation by token: {}", token);
         let row = sqlx::query_as::<_, ReservationRow>(
             "SELECT id, event_id, user_name, user_email, status, reservation_token, verification_token, created_at, updated_at, verified_at FROM reservations WHERE reservation_token = ? AND status = 'pending'"
         )
@@ -257,7 +286,7 @@ impl Database {
     }
 
     /// Get confirmed reservation by token
-    pub async fn get_confirmed_reservation_by_token(&self, token: &str) -> Result<models::ConfirmedReservation, DatabaseError> {
+    pub async fn get_confirmed_reservation_by_reservation_token(&self, token: &str) -> Result<models::ConfirmedReservation, DatabaseError> {
         let row = sqlx::query_as::<_, ReservationRow>(
             "SELECT id, event_id, user_name, user_email, status, reservation_token, verification_token, created_at, updated_at, verified_at FROM reservations WHERE reservation_token = ? AND status = 'confirmed'"
         )
@@ -437,8 +466,8 @@ mod tests {
         let has_capacity = db.check_open_event_capacity(&event.id).await.unwrap();
         assert!(has_capacity);
         
-        // Test retrieval by token
-        let found = db.get_pending_reservation_by_token("test-token-123").await.unwrap();
+        // Test retrieval by verification token
+        let found = db.get_pending_reservation_by_verification_token("verification-token-123").await.unwrap();
         assert_eq!(found.id, reservation.id);
     }
 }

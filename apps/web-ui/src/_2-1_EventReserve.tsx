@@ -1,4 +1,4 @@
-import RequestReservationForm from "./RequestReservationForm";
+import RequestReservationForm from "./_2-2_RequestReservationForm";
 import { formatDateTime, useEvent } from "./useEvent";
 
 interface Props {

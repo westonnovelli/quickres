@@ -133,10 +133,10 @@ async fn verify_email(
     let db = Database { pool: state.pool.clone() };
     
     // Find pending reservation by token
-    let pending_reservation = match db.get_pending_reservation_by_token(&token).await {
+    let pending_reservation = match db.get_pending_reservation_by_verification_token(&token).await {
         Ok(res) => res,
         Err(_) => {
-            match db.get_pending_reservation_by_token(&token).await {
+            match db.get_confirmed_reservation_by_verification_token(&token).await {
                 Ok(_) =>{
                     return Err(AppError::Validation("Reservation already confirmed".to_string()));
                 }
@@ -258,10 +258,10 @@ async fn get_reservation_by_magic_token(
     let db = Database { pool: state.pool.clone() };
     
     // First, try to find a confirmed reservation by exact token match
-    let confirmed_reservation = match db.get_confirmed_reservation_by_token(&magic_token).await {
+    let confirmed_reservation = match db.get_confirmed_reservation_by_reservation_token(&magic_token).await {
         Ok(confirmed) => confirmed,
         Err(_) => {
-            db.get_pending_reservation_by_token(&magic_token)
+            db.get_pending_reservation_by_reservation_token(&magic_token)
             .await
             .map_err(DatabaseError::from)?;
             

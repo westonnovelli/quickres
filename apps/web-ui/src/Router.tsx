@@ -1,18 +1,19 @@
 import {
-	Link,
-	Outlet,
-	RouterProvider,
 	createRootRoute,
 	createRoute,
 	createRouter,
+	Link,
+	Outlet,
+	RouterProvider,
 	useParams,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import EventNotFound from "./EventNotFound";
-import EventViewer from "./EventViewer";
-import EventReserve from "./EventReserve";
-import ReservationConfirmation from "./ReservationConfirmation";
+import EventReserve from "./_2-1_EventReserve";
+import EventViewer from "./_1_EventViewer";
 import Header from "./Header";
+import ReservationConfirmation from "./_3_ReservationConfirmation";
+import VerifyEmail from "./_4_VerifyEmail";
 
 const rootRoute = createRootRoute({
 	component: () => (
@@ -90,11 +91,25 @@ const reservationConfirmationRoute = createRoute({
 	},
 });
 
+const verifyEmailRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/verify/$token",
+	component: function VerifyEmailContainer() {
+		return (
+			<>
+				<Header />
+				<VerifyEmail />
+			</>
+		);
+	},
+});
+
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	eventViewerRoute,
 	eventReserveRoute,
 	reservationConfirmationRoute,
+	verifyEmailRoute,
 ]);
 
 export const router = createRouter({

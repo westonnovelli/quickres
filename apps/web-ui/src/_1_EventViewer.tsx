@@ -51,7 +51,7 @@ const EventViewer: React.FC<Props> = ({ eventId }) => {
 					{/* Event Details Grid - More Horizontal */}
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-2">
 						{/* Time Information */}
-						<div className="bg-blue-50 rounded-lg">
+						<div className="bg-blue-50 rounded-lg p-1">
 							<h3 className="text-base font-semibold text-blue-900 flex items-center">
 								<svg
 									className="w-4 h-4 mr-2"
@@ -60,6 +60,7 @@ const EventViewer: React.FC<Props> = ({ eventId }) => {
 									viewBox="0 0 24 24"
 									aria-label="Clock"
 								>
+									<title>Clock</title>
 									<path
 										strokeLinecap="round"
 										strokeLinejoin="round"
@@ -90,7 +91,7 @@ const EventViewer: React.FC<Props> = ({ eventId }) => {
 						</div>
 
 						{event.location && (
-							<div className="bg-green-50 rounded-lg">
+							<div className="bg-green-50 rounded-lg p-1">
 								<h3 className="text-base font-semibold text-green-900 flex items-center">
 									<svg
 										className="w-4 h-4 mr-2"
@@ -99,6 +100,7 @@ const EventViewer: React.FC<Props> = ({ eventId }) => {
 										viewBox="0 0 24 24"
 										aria-label="Location"
 									>
+										<title>Location</title>
 										<path
 											strokeLinecap="round"
 											strokeLinejoin="round"
@@ -122,7 +124,7 @@ const EventViewer: React.FC<Props> = ({ eventId }) => {
 
 						{/* CTA Section */}
 						{event.status === "Open" && (
-							<div className="bg-blue-50 rounded-lg">
+							<div className="bg-blue-50 rounded-lg p-1">
 								<h3 className="text-base font-semibold text-blue-900 flex items-center">
 									There's still room!
 								</h3>
