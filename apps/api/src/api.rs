@@ -61,8 +61,8 @@ pub struct ReserveRequest {
     pub user_name: String,
     #[validate(email(message = "Invalid email address"))]
     pub user_email: String,
-    #[validate(range(min = 1, max = 10000, message = "Slot count must be between 1 and 10000"))]
-    pub slot_count: u32,
+    #[validate(range(min = 1, max = 10000, message = "Spot count must be between 1 and 10000"))]
+    pub spot_count: u32,
 }
 
 #[derive(Debug, Serialize)]

@@ -197,7 +197,7 @@ pub struct Reservation<State> where State: Display {
     pub user_name: String,
     pub user_email: String,
     pub verification_token: VerificationToken,
-    pub slot_count: u32,
+    pub spot_count: u32,
     pub status: State,
 }
 
@@ -254,14 +254,14 @@ pub type PendingReservation = Reservation<Pending>;
 pub type ConfirmedReservation = Reservation<Confirmed>;
 
 impl CreatingReservation {
-    pub fn prepare(event_id: Uuid, user_name: String, user_email: String, slot_count: u32) -> Self {
+    pub fn prepare(event_id: Uuid, user_name: String, user_email: String, spot_count: u32) -> Self {
         Reservation {
             id: Uuid::new_v4(),
             event_id,
             user_name,
             user_email,
             verification_token: VerificationToken::new(),
-            slot_count,
+            spot_count,
             status: Creating,
         }
     }
@@ -273,7 +273,7 @@ impl CreatingReservation {
             user_name: self.user_name,
             user_email: self.user_email,
             verification_token: self.verification_token,
-            slot_count: self.slot_count,
+            spot_count: self.spot_count,
             status: Pending {
                 created_at,
                 updated_at: created_at,
@@ -291,12 +291,12 @@ impl PendingReservation {
             user_name: self.user_name,
             user_email: self.user_email,
             verification_token: self.verification_token,
-            slot_count: self.slot_count,
+            spot_count: self.spot_count,
             status: Confirmed {
                 created_at: self.status.created_at,
                 updated_at: confirmed_at,
                 verified_at: confirmed_at, 
-                reservation_tokens: (0..self.slot_count).map(|_| {
+                reservation_tokens: (0..self.spot_count).map(|_| {
                     AnyReservationToken::from_active(ReservationToken::new(self.id, confirmed_at))
                 }).collect(),
             },

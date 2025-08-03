@@ -97,20 +97,17 @@ async fn reserve(
         return Err(AppError::Validation("Event is at full capacity".to_string()));
     }
 
-    if current_count + payload.slot_count > event.capacity {
+    if current_count + payload.spot_count > event.capacity {
         return Err(AppError::Validation("Cannot reserve this many slots for this event".to_string()));
     }
     
-    // Generate tokens
-    let verification_token = Uuid::new_v4().to_string();
-    
     // Insert pending reservation
     let reservation = db.insert_reservation(
-        models::CreatingReservation::prepare(payload.event_id, payload.user_name, payload.user_email, payload.slot_count)
+        models::CreatingReservation::prepare(payload.event_id, payload.user_name, payload.user_email, payload.spot_count)
     ).await?;
     
     // Send verification email with the verification token, not the reservation token
-    state.email_sender.send_verification(&reservation.user_email, &verification_token).await?;
+    state.email_sender.send_verification(&reservation.user_email, &reservation.verification_token.0).await?;
 
     let response = api::ReserveResponse {
         reservation_id: reservation.id,

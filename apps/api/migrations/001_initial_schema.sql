@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     user_name TEXT NOT NULL,
     user_email TEXT NOT NULL,
 
-    slot_count INTEGER NOT NULL,
+    spot_count INTEGER NOT NULL,
     
     -- Reservation Management
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'cancelled')),
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     CHECK (updated_at > 0),              -- Valid timestamp
     CHECK (updated_at >= created_at),    -- Updated time cannot be before created
     CHECK (verified_at IS NULL OR verified_at >= created_at), -- Verified time logic
-    CHECK (slot_count > 0),              -- Slot count must be positive
+    CHECK (spot_count > 0),              -- Spot count must be positive
     CHECK (LENGTH(user_email) > 0),      -- Non-empty email
     CHECK (LENGTH(user_name) > 0)        -- Non-empty name
 );

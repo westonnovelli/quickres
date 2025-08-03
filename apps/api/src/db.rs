@@ -75,7 +75,7 @@ struct ReservationRow {
     event_id: String,  // Store UUID as TEXT in SQLite
     user_name: String,
     user_email: String,
-    slot_count: u32,
+    spot_count: u32,
     status: String,
     verification_token: String,
     created_at: OffsetDateTime,
@@ -162,7 +162,7 @@ impl ReservationRow {
             event_id: Uuid::parse_str(&self.event_id).expect("Invalid UUID in database"),
             user_name: self.user_name,
             user_email: self.user_email,
-            slot_count: self.slot_count,
+            spot_count: self.spot_count,
             verification_token: self.verification_token.into(),
             status: models::Pending {
                 created_at: self.created_at,
@@ -179,7 +179,7 @@ impl ReservationRow {
             event_id: Uuid::parse_str(&self.event_id).expect("Invalid UUID in database"),
             user_name: self.user_name,
             user_email: self.user_email,
-            slot_count: self.slot_count,
+            spot_count: self.spot_count,
             verification_token: self.verification_token.into(),
             status: models::Confirmed { 
                 created_at: self.created_at,
@@ -257,14 +257,15 @@ impl Database {
         // Insert the reservation (timestamps handled by database)
         sqlx::query(
             r#"
-            INSERT INTO reservations (id, event_id, user_name, user_email, status, verification_token, verified_at)
-            VALUES (?, ?, ?, ?, 'pending', ?, NULL)
+            INSERT INTO reservations (id, event_id, user_name, user_email, spot_count,   status, verification_token, verified_at)
+            VALUES                   ( ?,        ?,         ?,          ?,          ?, 'pending',          ?,        NULL)
             "#
         )
         .bind(creating_reservation.id.to_string())
         .bind(creating_reservation.event_id.to_string())
         .bind(&creating_reservation.user_name)
         .bind(&creating_reservation.user_email)
+        .bind(creating_reservation.spot_count)
         .bind(creating_reservation.verification_token.0)
         .execute(&self.pool)
         .await?;
@@ -288,7 +289,7 @@ impl Database {
 
     pub async fn get_pending_reservation_by_id(&self, reservation_id: &Uuid) -> Result<models::PendingReservation, DatabaseError> {
         let row = sqlx::query_as::<_, ReservationRow>(
-        "SELECT id, event_id, user_name, user_email, status, verification_token, created_at, updated_at, verified_at FROM reservations WHERE id = ? AND status = 'pending'"
+        "SELECT id, event_id, user_name, user_email, spot_count, status, verification_token, created_at, updated_at, verified_at FROM reservations WHERE id = ? AND status = 'pending'"
         )
         .bind(reservation_id.to_string())
         .fetch_optional(&self.pool)
@@ -300,7 +301,7 @@ impl Database {
 
     pub async fn get_confirmed_reservation_by_id(&self, reservation_id: &Uuid) -> Result<models::ConfirmedReservation, DatabaseError> {
         let row = sqlx::query_as::<_, ReservationRow>(
-        "SELECT id, event_id, user_name, user_email, status, verification_token, created_at, updated_at, verified_at FROM reservations WHERE id = ? AND status = 'confirmed'"
+        "SELECT id, event_id, user_name, user_email, spot_count, status, verification_token, created_at, updated_at, verified_at FROM reservations WHERE id = ? AND status = 'confirmed'"
         )
         .bind(reservation_id.to_string())
         .fetch_optional(&self.pool)
@@ -313,7 +314,7 @@ impl Database {
     pub async fn get_pending_reservation_by_verification_token(&self, token: &str) -> Result<models::PendingReservation, DatabaseError> {
         println!("Getting pending reservation by verification token: {}", token);
         let row = sqlx::query_as::<_, ReservationRow>(
-            "SELECT id, event_id, user_name, user_email, status, verification_token, created_at, updated_at, verified_at FROM reservations WHERE verification_token = ? AND status = 'pending'"
+            "SELECT id, event_id, user_name, user_email, spot_count, status, verification_token, created_at, updated_at, verified_at FROM reservations WHERE verification_token = ? AND status = 'pending'"
         )
         .bind(token)
         .fetch_optional(&self.pool)
@@ -325,7 +326,7 @@ impl Database {
 
     pub async fn get_confirmed_reservation_by_verification_token(&self, token: &str) -> Result<models::ConfirmedReservation, DatabaseError> {
         let row = sqlx::query_as::<_, ReservationRow>(
-            "SELECT id, event_id, user_name, user_email, status, verification_token, created_at, updated_at, verified_at FROM reservations WHERE verification_token = ? AND status = 'confirmed'"
+            "SELECT id, event_id, user_name, user_email, spot_count, status, verification_token, created_at, updated_at, verified_at FROM reservations WHERE verification_token = ? AND status = 'confirmed'"
         )
         .bind(token)
         .fetch_optional(&self.pool)
@@ -605,7 +606,7 @@ mod tests {
             event_id: event.id,
             user_name: "John Doe".to_string(),
             user_email: "john@example.com".to_string(),
-            slot_count: 1,
+            spot_count: 1,
             verification_token: models::VerificationToken::new(),
             status: models::Creating,
         };

@@ -144,7 +144,7 @@ mod tests {
             user_name: "John Doe".to_string(),
             user_email: "john@example.com".to_string(),
             verification_token: models::VerificationToken::new(),
-            slot_count: 1,
+            spot_count: 1,
             status: models::Confirmed { 
                 verified_at: OffsetDateTime::now_utc(),
                 created_at: OffsetDateTime::now_utc(),
@@ -165,7 +165,7 @@ mod tests {
             user_name: "John Doe".to_string(),
             user_email: "john@example.com".to_string(),
             verification_token: models::VerificationToken::new(),
-            slot_count: 1,
+            spot_count: 1,
             status: models::Confirmed { 
                 verified_at: OffsetDateTime::now_utc(),
                 created_at: OffsetDateTime::now_utc(),
