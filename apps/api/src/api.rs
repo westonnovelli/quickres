@@ -61,6 +61,8 @@ pub struct ReserveRequest {
     pub user_name: String,
     #[validate(email(message = "Invalid email address"))]
     pub user_email: String,
+    #[validate(range(min = 1, max = 10000, message = "Slot count must be between 1 and 10000"))]
+    pub slot_count: u32,
 }
 
 #[derive(Debug, Serialize)]
@@ -89,7 +91,7 @@ pub struct RetrieveReservationResponse {
     pub user_name: String,
     pub user_email: String,
     pub status: ReservationStatus,
-    pub reservation_token: String,
+    pub reservation_tokens: Vec<String>,
     #[serde(with = "time::serde::iso8601")]
     pub created_at: OffsetDateTime,
     #[serde(with = "time::serde::iso8601")]

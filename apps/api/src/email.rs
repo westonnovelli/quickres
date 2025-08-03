@@ -20,14 +20,13 @@ pub async fn send_verification(email: &str, token: &str) -> Result<(), EmailErro
     }
 
     // Get configuration from environment variables
-    // TODO: make sure url is for the web-ui
-    let base_url = env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:8000".to_string());
+    let app_url = env::var("APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
     let email_from = env::var("EMAIL_FROM").unwrap_or_else(|_| "noreply@quick-res.example.com".to_string());
     let email_from_name = env::var("EMAIL_FROM_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
     let app_name = env::var("APP_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
     
     // Build verification URL
-    let verification_url = format!("{}/verify/{}", base_url, token);
+    let verification_url = format!("{}/verify/{}", app_url, token);
 
     // For now, log to stdout - this will be replaced with actual email provider integration
     println!("=== EMAIL VERIFICATION ===");
@@ -55,13 +54,13 @@ pub async fn send_confirmation(email: &str, reservation: &models::ConfirmedReser
     }
 
     // Get configuration from environment variables
-    let base_url = env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:8000".to_string());
+    let app_url = env::var("APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
     let email_from = env::var("EMAIL_FROM").unwrap_or_else(|_| "noreply@quick-res.example.com".to_string());
     let email_from_name = env::var("EMAIL_FROM_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
     let app_name = env::var("APP_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
     
     // Build magic link URL
-    let magic_link_url = format!("{}/retrieve/{}", base_url, reservation.reservation_token);
+    let magic_link_url = format!("{}/retrieve/{}", app_url, reservation.id);
 
     // For now, log to stdout - this will be replaced with actual email provider integration
     println!("=== RESERVATION CONFIRMATION ===");
@@ -76,7 +75,7 @@ pub async fn send_confirmation(email: &str, reservation: &models::ConfirmedReser
     println!("- Reservation ID: {}", reservation.id);
     println!("- Event ID: {}", reservation.event_id);
     println!("- Status: {}", reservation.status);
-    println!("- Created: {}", reservation.created_at);
+    println!("- Created: {}", reservation.status.created_at);
     println!("");
     println!("Access your reservation details at:");
     println!("{}", magic_link_url);
@@ -144,11 +143,14 @@ mod tests {
             event_id: Uuid::new_v4(),
             user_name: "John Doe".to_string(),
             user_email: "john@example.com".to_string(),
-            reservation_token: "token789".to_string(),
-            verification_token: "token123".to_string(),
-            created_at: OffsetDateTime::now_utc(),
-            updated_at: OffsetDateTime::now_utc(),
-            status: models::Confirmed { verified_at: OffsetDateTime::now_utc() },
+            verification_token: models::VerificationToken::new(),
+            slot_count: 1,
+            status: models::Confirmed { 
+                verified_at: OffsetDateTime::now_utc(),
+                created_at: OffsetDateTime::now_utc(),
+                updated_at: OffsetDateTime::now_utc(),
+                reservation_tokens: vec![models::AnyReservationToken::from_active(models::ReservationToken::new(Uuid::new_v4(), OffsetDateTime::now_utc()))],
+            },
         };
 
         let result = send_confirmation("john@example.com", &reservation).await;
@@ -162,11 +164,14 @@ mod tests {
             event_id: Uuid::new_v4(),
             user_name: "John Doe".to_string(),
             user_email: "john@example.com".to_string(),
-            reservation_token: "token789".to_string(),
-            verification_token: "token123".to_string(),
-            created_at: OffsetDateTime::now_utc(),
-            updated_at: OffsetDateTime::now_utc(),
-            status: models::Confirmed { verified_at: OffsetDateTime::now_utc() },
+            verification_token: models::VerificationToken::new(),
+            slot_count: 1,
+            status: models::Confirmed { 
+                verified_at: OffsetDateTime::now_utc(),
+                created_at: OffsetDateTime::now_utc(),
+                updated_at: OffsetDateTime::now_utc(),
+                reservation_tokens: vec![models::AnyReservationToken::from_active(models::ReservationToken::new(Uuid::new_v4(), OffsetDateTime::now_utc()))],
+            },
         };
 
         let result = send_confirmation("invalid-email", &reservation).await;

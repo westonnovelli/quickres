@@ -93,31 +93,25 @@ async fn reserve(
     let event = db.get_open_event_by_id(&payload.event_id).await?;
     let current_count = db.count_event_reservations(&event.id).await?;
     
-    if current_count >= event.capacity {
+    if current_count > event.capacity {
         return Err(AppError::Validation("Event is at full capacity".to_string()));
+    }
+
+    if current_count + payload.slot_count > event.capacity {
+        return Err(AppError::Validation("Cannot reserve this many slots for this event".to_string()));
     }
     
     // Generate tokens
     let verification_token = Uuid::new_v4().to_string();
-    let magic_link_token = Uuid::new_v4().to_string();
-    
-    // For now, we'll use the verification_token as the reservation_token
-    // In a real implementation, you might want separate tokens for different purposes
-    let reservation_token = format!("{}-{}", verification_token, magic_link_token);
     
     // Insert pending reservation
     let reservation = db.insert_reservation(
-        &payload.event_id,
-        &payload.user_name,
-        &payload.user_email,
-        &reservation_token,
-        &verification_token,
+        models::CreatingReservation::prepare(payload.event_id, payload.user_name, payload.user_email, payload.slot_count)
     ).await?;
     
-    // TODO: change the payload here to send a verification token, not the reservation token. 
-    // Send verification email
-    state.email_sender.send_verification(&payload.user_email, &verification_token).await?;
-    
+    // Send verification email with the verification token, not the reservation token
+    state.email_sender.send_verification(&reservation.user_email, &verification_token).await?;
+
     let response = api::ReserveResponse {
         reservation_id: reservation.id,
         status: reservation.status.into(),  
@@ -273,11 +267,11 @@ async fn get_reservation_by_magic_token(
         reservation_id: confirmed_reservation.id,
         user_name: confirmed_reservation.user_name,
         user_email: confirmed_reservation.user_email,
-        created_at: confirmed_reservation.created_at,
-        updated_at: confirmed_reservation.updated_at,
+        created_at: confirmed_reservation.status.created_at,
+        updated_at: confirmed_reservation.status.updated_at,
         verified_at: Some(confirmed_reservation.status.verified_at),
+        reservation_tokens: confirmed_reservation.status.reservation_tokens.clone().into_iter().map(|token| token.token().to_string()).collect(),
         status: confirmed_reservation.status.into(),
-        reservation_token: confirmed_reservation.reservation_token,
         event: {
             let event = db.get_open_event_by_id(&confirmed_reservation.event_id).await?;
             api::RetrieveReservationEventResponse {
@@ -324,7 +318,7 @@ async fn main() -> shuttle_axum::ShuttleAxum {
         .route("/events/{id}", get(get_event_by_id))
         .route("/reserve", post(reserve))
         .route("/verify/{token}", get(verify_email))
-        .route("/retrieve/{magic_token}", get(get_reservation_by_magic_token))
+        .route("/retrieve/{magic_token}", get(get_reservation_by_magic_token)) // TODO: do we want a retrieval token? or just use the id? 
         .with_state(state)
         // Layer with Trace for request logging
         .layer(TraceLayer::new_for_http())

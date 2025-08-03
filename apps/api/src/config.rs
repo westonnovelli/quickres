@@ -7,6 +7,7 @@ pub struct Config {
     pub base_url: String,
     pub app_name: String,
     pub app_environment: String,
+    pub app_url: String,
     pub port: u16,
     pub email_from: String,
     pub email_from_name: String,
@@ -34,6 +35,8 @@ impl Config {
                 .unwrap_or_else(|_| "Quick Reservations".to_string()),
             app_environment: env::var("APP_ENVIRONMENT")
                 .unwrap_or_else(|_| "development".to_string()),
+            app_url: env::var("APP_URL")
+                .unwrap_or_else(|_| "http://localhost:5173".to_string()),
             port: env::var("PORT")
                 .unwrap_or_else(|_| "8000".to_string())
                 .parse()
@@ -140,6 +143,7 @@ mod tests {
         env::remove_var("DATABASE_URL");
         env::remove_var("BASE_URL");
         env::remove_var("APP_NAME");
+        env::remove_var("APP_URL");
         env::remove_var("PORT");
         env::remove_var("EMAIL_PROVIDER");
         env::remove_var("APP_ENVIRONMENT");
@@ -170,6 +174,7 @@ mod tests {
         env::remove_var("DATABASE_URL");
         env::remove_var("BASE_URL");
         env::remove_var("APP_NAME");
+        env::remove_var("APP_URL");
         env::remove_var("PORT");
         env::remove_var("EMAIL_PROVIDER");
         env::remove_var("APP_ENVIRONMENT");
@@ -211,6 +216,7 @@ mod tests {
         env::remove_var("DATABASE_URL");
         env::remove_var("BASE_URL");
         env::remove_var("APP_NAME");
+        env::remove_var("APP_URL");
         env::remove_var("PORT");
         env::remove_var("EMAIL_PROVIDER");
         env::remove_var("APP_ENVIRONMENT");
@@ -259,6 +265,7 @@ mod tests {
         env::remove_var("DATABASE_URL");
         env::remove_var("BASE_URL");
         env::remove_var("APP_NAME");
+        env::remove_var("APP_URL");
         env::remove_var("PORT");
         env::remove_var("EMAIL_PROVIDER");
         env::remove_var("APP_ENVIRONMENT");
