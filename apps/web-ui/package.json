@@ -17,7 +17,8 @@
   "dependencies": {
     "@tanstack/react-form": "^1.13.2",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-qr-reader": "^3.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.6",

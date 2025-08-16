@@ -16,6 +16,7 @@ import ReservationConfirmation from "./_3_ReservationConfirmation";
 import VerifyEmail from "./_4_VerifyEmail";
 import RetrieveReservation from "./_5_RetrieveReservation";
 import ScanReservation from "./_6_ScanReservation";
+import QRCodeScanner from "./_7_QRCodeScanner";
 
 const rootRoute = createRootRoute({
 	component: () => (
@@ -119,6 +120,12 @@ const retrieveReservationRoute = createRoute({
         },
 });
 
+const qrScannerRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: "/scan",
+        component: QRCodeScanner,
+});
+
 const scanReservationRoute = createRoute({
         getParentRoute: () => rootRoute,
         path: "/scan/$token",
@@ -134,6 +141,7 @@ const routeTree = rootRoute.addChildren([
         reservationConfirmationRoute,
         verifyEmailRoute,
         retrieveReservationRoute,
+        qrScannerRoute,
         scanReservationRoute,
 ]);
 
