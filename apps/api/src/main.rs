@@ -243,23 +243,25 @@ async fn generate_random_event(
 }
 
 async fn get_reservation_by_magic_token(
-    Path(magic_token): Path<String>,
+    Path(reservation_id): Path<String>,
     State(state): State<AppState>,
 ) -> Result<Json<api::RetrieveReservationResponse>, AppError> {
     let db = Database { pool: state.pool.clone() };
-    
-    // First, try to find a confirmed reservation by exact token match
-    let confirmed_reservation = match db.get_confirmed_reservation_by_reservation_token(&magic_token).await {
+
+    let reservation_uuid = Uuid::parse_str(&reservation_id)?;
+
+    // Try to find confirmed reservation by id
+    let confirmed_reservation = match db.get_confirmed_reservation_by_id(&reservation_uuid).await {
         Ok(confirmed) => confirmed,
         Err(_) => {
-            db.get_pending_reservation_by_reservation_token(&magic_token)
-            .await
-            .map_err(DatabaseError::from)?;
-            
-            return Err(AppError::Validation("Reservation must be confirmed before it can be retrieved. Please check your email for the verification link.".to_string()));
+            // Check if reservation exists but is still pending
+            if db.get_pending_reservation_by_id(&reservation_uuid).await.is_ok() {
+                return Err(AppError::Validation("Reservation must be confirmed before it can be retrieved. Please check your email for the verification link.".to_string()));
+            }
+            return Err(AppError::not_found());
         }
     };
-    
+
     let response = api::RetrieveReservationResponse {
         reservation_id: confirmed_reservation.id,
         user_name: confirmed_reservation.user_name,
@@ -267,7 +269,16 @@ async fn get_reservation_by_magic_token(
         created_at: confirmed_reservation.status.created_at,
         updated_at: confirmed_reservation.status.updated_at,
         verified_at: Some(confirmed_reservation.status.verified_at),
-        reservation_tokens: confirmed_reservation.status.reservation_tokens.clone().into_iter().map(|token| token.token().to_string()).collect(),
+        reservation_tokens: confirmed_reservation
+            .status
+            .reservation_tokens
+            .clone()
+            .into_iter()
+            .map(|token| api::ReservationTokenResponse {
+                token: token.token().to_string(),
+                status: token.state_name().to_string(),
+            })
+            .collect(),
         status: confirmed_reservation.status.into(),
         event: {
             let event = db.get_open_event_by_id(&confirmed_reservation.event_id).await?;
@@ -281,8 +292,23 @@ async fn get_reservation_by_magic_token(
                 location: event.location,
             }
         },
-    };  
-    
+    };
+
+    Ok(Json(response))
+}
+
+async fn scan_reservation_token(
+    Path(token): Path<String>,
+    State(state): State<AppState>,
+) -> Result<Json<api::ScanTokenResponse>, AppError> {
+    let db = Database { pool: state.pool.clone() };
+    db.mark_reservation_token_used(&token).await?;
+
+    let response = api::ScanTokenResponse {
+        token,
+        status: "used".to_string(),
+    };
+
     Ok(Json(response))
 }
 
@@ -315,7 +341,8 @@ async fn main() -> shuttle_axum::ShuttleAxum {
         .route("/events/{id}", get(get_event_by_id))
         .route("/reserve", post(reserve))
         .route("/verify/{token}", get(verify_email))
-        .route("/retrieve/{magic_token}", get(get_reservation_by_magic_token)) // TODO: do we want a retrieval token? or just use the id? 
+        .route("/retrieve/{magic_token}", get(get_reservation_by_magic_token))
+        .route("/scan/{token}", get(scan_reservation_token))
         .with_state(state)
         // Layer with Trace for request logging
         .layer(TraceLayer::new_for_http())

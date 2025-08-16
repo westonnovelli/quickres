@@ -15,6 +15,8 @@ pub enum DatabaseError {
     EventNotFound,
     #[error("Reservation not found")]
     ReservationNotFound,
+    #[error("Reservation token not found or already used")]
+    TokenInvalid,
 }
 
 // Database Models - Used for database operations and internal data representation
@@ -519,6 +521,23 @@ impl Database {
         }
 
         Ok(confirmed)
+    }
+
+    pub async fn mark_reservation_token_used(&self, token: &str) -> Result<(), DatabaseError> {
+        let now = OffsetDateTime::now_utc();
+        let result = sqlx::query(
+            "UPDATE reservation_tokens SET status = 'used', used_at = ? WHERE token = ? AND status = 'active'",
+        )
+        .bind(now)
+        .bind(token)
+        .execute(&self.pool)
+        .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(DatabaseError::TokenInvalid);
+        }
+
+        Ok(())
     }
 
 

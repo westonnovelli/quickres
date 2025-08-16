@@ -86,12 +86,18 @@ pub enum ReservationStatus {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ReservationTokenResponse {
+    pub token: String,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct RetrieveReservationResponse {
     pub reservation_id: Uuid,
     pub user_name: String,
     pub user_email: String,
     pub status: ReservationStatus,
-    pub reservation_tokens: Vec<String>,
+    pub reservation_tokens: Vec<ReservationTokenResponse>,
     #[serde(with = "time::serde::iso8601")]
     pub created_at: OffsetDateTime,
     #[serde(with = "time::serde::iso8601")]
@@ -99,6 +105,12 @@ pub struct RetrieveReservationResponse {
     #[serde(with = "time::serde::iso8601::option")]
     pub verified_at: Option<OffsetDateTime>,
     pub event: RetrieveReservationEventResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ScanTokenResponse {
+    pub token: String,
+    pub status: String,
 }
 
 #[derive(Debug, Serialize)]

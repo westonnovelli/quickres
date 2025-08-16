@@ -64,6 +64,12 @@ impl IntoResponse for AppError {
             AppError::Database(crate::db::DatabaseError::ReservationNotFound) => {
                 (StatusCode::NOT_FOUND, "Reservation not found".to_string())
             }
+            AppError::Database(crate::db::DatabaseError::TokenInvalid) => {
+                (
+                    StatusCode::BAD_REQUEST,
+                    "Reservation token not found or already used".to_string(),
+                )
+            }
             AppError::Database(_) => {
                 // Log the actual error but don't expose internal details to the client
                 eprintln!("Database error: {}", self);
