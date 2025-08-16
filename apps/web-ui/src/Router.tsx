@@ -14,6 +14,8 @@ import EventViewer from "./_1_EventViewer";
 import Header from "./Header";
 import ReservationConfirmation from "./_3_ReservationConfirmation";
 import VerifyEmail from "./_4_VerifyEmail";
+import RetrieveReservation from "./_5_RetrieveReservation";
+import ScanReservation from "./_6_ScanReservation";
 
 const rootRoute = createRootRoute({
 	component: () => (
@@ -92,24 +94,47 @@ const reservationConfirmationRoute = createRoute({
 });
 
 const verifyEmailRoute = createRoute({
-	getParentRoute: () => rootRoute,
-	path: "/verify/$token",
-	component: function VerifyEmailContainer() {
-		return (
-			<>
-				<Header />
-				<VerifyEmail />
-			</>
-		);
-	},
+        getParentRoute: () => rootRoute,
+        path: "/verify/$token",
+        component: function VerifyEmailContainer() {
+                return (
+                        <>
+                                <Header />
+                                <VerifyEmail />
+                        </>
+                );
+        },
+});
+
+const retrieveReservationRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: "/retrieve/$reservationId",
+        component: function RetrieveReservationContainer() {
+                return (
+                        <>
+                                <Header />
+                                <RetrieveReservation />
+                        </>
+                );
+        },
+});
+
+const scanReservationRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: "/scan/$token",
+        component: function ScanReservationContainer() {
+                return <ScanReservation />;
+        },
 });
 
 const routeTree = rootRoute.addChildren([
-	indexRoute,
-	eventViewerRoute,
-	eventReserveRoute,
-	reservationConfirmationRoute,
-	verifyEmailRoute,
+        indexRoute,
+        eventViewerRoute,
+        eventReserveRoute,
+        reservationConfirmationRoute,
+        verifyEmailRoute,
+        retrieveReservationRoute,
+        scanReservationRoute,
 ]);
 
 export const router = createRouter({
