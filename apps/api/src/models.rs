@@ -30,7 +30,6 @@ pub struct Event<State> {
 pub type OpenEvent = Event<Open>;
 pub type FullEvent = Event<Full>;
 
-
 #[derive(Debug, Clone)]
 pub struct Creating;
 
@@ -84,13 +83,42 @@ impl Display for Confirmed {
     }
 }
 
-
 #[derive(Debug)] // maybe should have a "new" function impl for this instead of pub String
 pub struct VerificationToken(pub String);
 
 impl VerificationToken {
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
+    }
+}
+
+#[derive(Debug)]
+pub struct ScannerToken(pub String);
+
+impl ScannerToken {
+    pub fn new() -> Self {
+        Self(format!("s-{}", Uuid::new_v4()))
+    }
+}
+
+#[derive(Debug)]
+pub struct ScannerInvite {
+    pub id: Uuid,
+    pub event_id: Uuid,
+    pub email: String,
+    pub token: ScannerToken,
+    pub created_at: OffsetDateTime,
+}
+
+impl ScannerInvite {
+    pub fn new(event_id: Uuid, email: String, created_at: OffsetDateTime) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            event_id,
+            email,
+            token: ScannerToken::new(),
+            created_at,
+        }
     }
 }
 
@@ -129,7 +157,10 @@ impl Display for Unknown {
 }
 
 #[derive(Debug, Clone)]
-pub struct ReservationToken<State> where State: Display {
+pub struct ReservationToken<State>
+where
+    State: Display,
+{
     pub token: String,
     pub reservation_id: Uuid,
     pub created_at: OffsetDateTime,
@@ -191,7 +222,10 @@ impl AnyReservationToken {
 
 // Generic reservation with type-state
 #[derive(Debug)]
-pub struct Reservation<State> where State: Display {
+pub struct Reservation<State>
+where
+    State: Display,
+{
     pub id: Uuid,
     pub event_id: Uuid,
     pub user_name: String,
@@ -204,7 +238,8 @@ pub struct Reservation<State> where State: Display {
 impl ConfirmedReservation {
     /// Get all active reservation tokens with full type safety
     pub fn get_active_reservation_tokens(&self) -> Vec<ActiveReservationToken> {
-        self.status.reservation_tokens
+        self.status
+            .reservation_tokens
             .iter()
             .filter_map(|token| {
                 if let AnyReservationToken::Active(active_token) = token {
@@ -219,7 +254,8 @@ impl ConfirmedReservation {
 
     /// Get all used reservation tokens with full type safety
     pub fn get_used_reservation_tokens(&self) -> Vec<UsedReservationToken> {
-        self.status.reservation_tokens
+        self.status
+            .reservation_tokens
             .iter()
             .filter_map(|token| {
                 if let AnyReservationToken::Used(used_token) = token {
@@ -234,7 +270,8 @@ impl ConfirmedReservation {
 
     /// Get all expired reservation tokens with full type safety
     pub fn get_expired_reservation_tokens(&self) -> Vec<ExpiredReservationToken> {
-        self.status.reservation_tokens
+        self.status
+            .reservation_tokens
             .iter()
             .filter_map(|token| {
                 if let AnyReservationToken::Expired(expired_token) = token {
@@ -295,10 +332,15 @@ impl PendingReservation {
             status: Confirmed {
                 created_at: self.status.created_at,
                 updated_at: confirmed_at,
-                verified_at: confirmed_at, 
-                reservation_tokens: (0..self.spot_count).map(|_| {
-                    AnyReservationToken::from_active(ReservationToken::new(self.id, confirmed_at))
-                }).collect(),
+                verified_at: confirmed_at,
+                reservation_tokens: (0..self.spot_count)
+                    .map(|_| {
+                        AnyReservationToken::from_active(ReservationToken::new(
+                            self.id,
+                            confirmed_at,
+                        ))
+                    })
+                    .collect(),
             },
         }
     }
@@ -409,7 +451,7 @@ fn example_usage() {
     // Use the typed methods
     let active_tokens = reservation.get_active_reservation_tokens();
     let used_tokens = reservation.get_used_reservation_tokens();
-    
+
     // Access common properties regardless of state
     for token in reservation.get_all_tokens() {
         println!("Token: {}, Created: {}", token.token(), token.created_at());

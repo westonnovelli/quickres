@@ -1,7 +1,6 @@
-
-use thiserror::Error;
-use std::env;
 use crate::models;
+use std::env;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum EmailError {
@@ -21,10 +20,12 @@ pub async fn send_verification(email: &str, token: &str) -> Result<(), EmailErro
 
     // Get configuration from environment variables
     let app_url = env::var("APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
-    let email_from = env::var("EMAIL_FROM").unwrap_or_else(|_| "noreply@quick-res.example.com".to_string());
-    let email_from_name = env::var("EMAIL_FROM_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
+    let email_from =
+        env::var("EMAIL_FROM").unwrap_or_else(|_| "noreply@quick-res.example.com".to_string());
+    let email_from_name =
+        env::var("EMAIL_FROM_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
     let app_name = env::var("APP_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
-    
+
     // Build verification URL
     let verification_url = format!("{}/verify/{}", app_url, token);
 
@@ -47,7 +48,10 @@ pub async fn send_verification(email: &str, token: &str) -> Result<(), EmailErro
 
 /// Send a confirmation email for a reservation
 /// Currently logs to stdout, but designed to be pluggable for real email providers
-pub async fn send_confirmation(email: &str, reservation: &models::ConfirmedReservation) -> Result<(), EmailError> {
+pub async fn send_confirmation(
+    email: &str,
+    reservation: &models::ConfirmedReservation,
+) -> Result<(), EmailError> {
     // Validate email format (basic validation)
     if !is_valid_email(email) {
         return Err(EmailError::InvalidEmail(email.to_string()));
@@ -55,10 +59,12 @@ pub async fn send_confirmation(email: &str, reservation: &models::ConfirmedReser
 
     // Get configuration from environment variables
     let app_url = env::var("APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
-    let email_from = env::var("EMAIL_FROM").unwrap_or_else(|_| "noreply@quick-res.example.com".to_string());
-    let email_from_name = env::var("EMAIL_FROM_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
+    let email_from =
+        env::var("EMAIL_FROM").unwrap_or_else(|_| "noreply@quick-res.example.com".to_string());
+    let email_from_name =
+        env::var("EMAIL_FROM_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
     let app_name = env::var("APP_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
-    
+
     // Build magic link URL
     let magic_link_url = format!("{}/retrieve/{}", app_url, reservation.id);
 
@@ -88,27 +94,68 @@ pub async fn send_confirmation(email: &str, reservation: &models::ConfirmedReser
     Ok(())
 }
 
+/// Send an invite email to a scanner
+/// Currently logs to stdout, but designed to be pluggable for real email providers
+pub async fn send_scanner_invite(
+    email: &str,
+    invite: &models::ScannerInvite,
+) -> Result<(), EmailError> {
+    // Validate email format (basic validation)
+    if !is_valid_email(email) {
+        return Err(EmailError::InvalidEmail(email.to_string()));
+    }
+
+    // Get configuration from environment variables
+    let app_url = env::var("APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
+    let email_from =
+        env::var("EMAIL_FROM").unwrap_or_else(|_| "noreply@quick-res.example.com".to_string());
+    let email_from_name =
+        env::var("EMAIL_FROM_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
+    let app_name = env::var("APP_NAME").unwrap_or_else(|_| "Quick Reservations".to_string());
+
+    // Build scanner invite URL
+    let invite_url = format!("{}/scan/{}", app_url, invite.token.0);
+
+    // For now, log to stdout - this will be replaced with actual email provider integration
+    println!("=== SCANNER INVITE ===");
+    println!("From: {} <{}>", email_from_name, email_from);
+    println!("To: {}", email);
+    println!("Subject: Scanner Access - {}", app_name);
+    println!("Body:");
+    println!(
+        "You have been invited to scan reservations for event {}.",
+        invite.event_id
+    );
+    println!("Use the following link to access the scanner interface:");
+    println!("{}", invite_url);
+    println!("=======================");
+
+    // Simulate potential email sending failure for testing
+    // In a real implementation, this would handle actual SMTP errors, API failures, etc.
+    Ok(())
+}
+
 /// Basic email validation
 /// In a production system, you might want to use a more robust email validation library
 fn is_valid_email(email: &str) -> bool {
     if email.len() <= 5 {
         return false;
     }
-    
+
     let at_count = email.matches('@').count();
     if at_count != 1 {
         return false;
     }
-    
+
     let at_pos = email.find('@').unwrap();
     let local_part = &email[..at_pos];
     let domain_part = &email[at_pos + 1..];
-    
+
     // Basic checks
-    !local_part.is_empty() 
-        && !domain_part.is_empty() 
-        && domain_part.contains('.') 
-        && !domain_part.starts_with('.') 
+    !local_part.is_empty()
+        && !domain_part.is_empty()
+        && domain_part.contains('.')
+        && !domain_part.starts_with('.')
         && !domain_part.ends_with('.')
 }
 
@@ -145,11 +192,13 @@ mod tests {
             user_email: "john@example.com".to_string(),
             verification_token: models::VerificationToken::new(),
             spot_count: 1,
-            status: models::Confirmed { 
+            status: models::Confirmed {
                 verified_at: OffsetDateTime::now_utc(),
                 created_at: OffsetDateTime::now_utc(),
                 updated_at: OffsetDateTime::now_utc(),
-                reservation_tokens: vec![models::AnyReservationToken::from_active(models::ReservationToken::new(Uuid::new_v4(), OffsetDateTime::now_utc()))],
+                reservation_tokens: vec![models::AnyReservationToken::from_active(
+                    models::ReservationToken::new(Uuid::new_v4(), OffsetDateTime::now_utc()),
+                )],
             },
         };
 
@@ -166,15 +215,45 @@ mod tests {
             user_email: "john@example.com".to_string(),
             verification_token: models::VerificationToken::new(),
             spot_count: 1,
-            status: models::Confirmed { 
+            status: models::Confirmed {
                 verified_at: OffsetDateTime::now_utc(),
                 created_at: OffsetDateTime::now_utc(),
                 updated_at: OffsetDateTime::now_utc(),
-                reservation_tokens: vec![models::AnyReservationToken::from_active(models::ReservationToken::new(Uuid::new_v4(), OffsetDateTime::now_utc()))],
+                reservation_tokens: vec![models::AnyReservationToken::from_active(
+                    models::ReservationToken::new(Uuid::new_v4(), OffsetDateTime::now_utc()),
+                )],
             },
         };
 
         let result = send_confirmation("invalid-email", &reservation).await;
+        assert!(result.is_err());
+        match result {
+            Err(EmailError::InvalidEmail(_)) => (),
+            _ => panic!("Expected InvalidEmail error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_send_scanner_invite_valid_email() {
+        let invite = models::ScannerInvite::new(
+            Uuid::new_v4(),
+            "scanner@example.com".to_string(),
+            OffsetDateTime::now_utc(),
+        );
+
+        let result = send_scanner_invite("scanner@example.com", &invite).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_send_scanner_invite_invalid_email() {
+        let invite = models::ScannerInvite::new(
+            Uuid::new_v4(),
+            "scanner@example.com".to_string(),
+            OffsetDateTime::now_utc(),
+        );
+
+        let result = send_scanner_invite("invalid-email", &invite).await;
         assert!(result.is_err());
         match result {
             Err(EmailError::InvalidEmail(_)) => (),
