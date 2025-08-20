@@ -125,3 +125,14 @@ pub struct RetrieveReservationEventResponse {
     pub capacity: u32,
     pub location: Option<String>,
 }
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct ScannerInviteRequest {
+    #[validate(email(message = "Invalid email address"))]
+    pub email: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ScannerInviteResponse {
+    pub token: String,
+}
