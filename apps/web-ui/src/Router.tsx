@@ -17,6 +17,9 @@ import VerifyEmail from "./_4_VerifyEmail";
 import RetrieveReservation from "./_5_RetrieveReservation";
 import ScanReservation from "./_6_ScanReservation";
 import QRCodeScanner from "./_7_QRCodeScanner";
+import CreateEvent from "./_9_CreateEvent";
+import EditEvent from "./_10_EditEvent";
+import ManageEvent from "./_11_ManageEvent";
 
 const rootRoute = createRootRoute({
 	component: () => (
@@ -82,6 +85,47 @@ const eventReserveRoute = createRoute({
 	},
 });
 
+const createEventRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: "/admin/events/new",
+        component: function CreateEventContainer() {
+                return (
+                        <>
+                                <Header />
+                                <CreateEvent />
+                        </>
+                );
+        },
+});
+
+const manageEventRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: "/admin/events/$eventId",
+        component: function ManageEventContainer() {
+                const { eventId } = useParams({ from: "/admin/events/$eventId" });
+                return (
+                        <>
+                                <Header />
+                                <ManageEvent eventId={eventId} />
+                        </>
+                );
+        },
+});
+
+const editEventRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: "/admin/events/$eventId/edit",
+        component: function EditEventContainer() {
+                const { eventId } = useParams({ from: "/admin/events/$eventId/edit" });
+                return (
+                        <>
+                                <Header />
+                                <EditEvent eventId={eventId} />
+                        </>
+                );
+        },
+});
+
 const reservationConfirmationRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/reservation/confirmation",
@@ -138,6 +182,9 @@ const routeTree = rootRoute.addChildren([
         indexRoute,
         eventViewerRoute,
         eventReserveRoute,
+        createEventRoute,
+        manageEventRoute,
+        editEventRoute,
         reservationConfirmationRoute,
         verifyEmailRoute,
         retrieveReservationRoute,

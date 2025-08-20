@@ -475,6 +475,35 @@ impl Database {
         self.get_open_event_by_id(&event_id).await
     }
 
+    pub async fn update_event(
+        &self,
+        event_id: &Uuid,
+        name: &str,
+        description: Option<&str>,
+        start_time: OffsetDateTime,
+        end_time: OffsetDateTime,
+        capacity: i32,
+        location: Option<&str>,
+    ) -> Result<models::OpenEvent, DatabaseError> {
+        sqlx::query(
+            r#"
+            UPDATE events SET name = ?, description = ?, start_time = ?, end_time = ?, capacity = ?, location = ?
+            WHERE id = ? AND status = 'open'
+            "#,
+        )
+        .bind(name)
+        .bind(description)
+        .bind(start_time)
+        .bind(end_time)
+        .bind(capacity)
+        .bind(location)
+        .bind(event_id.to_string())
+        .execute(&self.pool)
+        .await?;
+
+        self.get_open_event_by_id(event_id).await
+    }
+
     // Helper methods for API compatibility (string IDs)
     
     /// Look up an event by string ID (converts to UUID)

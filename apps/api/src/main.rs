@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, State},
     response::Json,
-    routing::{get, post},
+    routing::{get, post, put},
     Router,
 };
 use tower_http::{
@@ -45,6 +45,10 @@ impl EmailSender {
     async fn send_confirmation(&self, email: &str, reservation: &models::ConfirmedReservation) -> Result<(), EmailError> {
         email::send_confirmation(email, reservation).await
     }
+
+    async fn send_scanner_invite(&self, email: &str, invite: &models::ScannerInvite) -> Result<(), EmailError> {
+        email::send_scanner_invite(email, invite).await
+    }
 }
 
 // Application state
@@ -77,6 +81,77 @@ async fn get_event_by_id(
         status: api::EventStatus::Open,
     };
     
+    Ok(Json(response))
+}
+
+async fn create_event(
+    State(state): State<AppState>,
+    Json(payload): Json<api::OpenEventRequest>,
+) -> Result<Json<api::OpenEventResponse>, AppError> {
+    payload.validate()?;
+
+    let db = Database { pool: state.pool.clone() };
+    let event = db
+        .create_event(
+            &payload.name,
+            payload.description.as_deref(),
+            payload.start_time,
+            payload.end_time,
+            payload.capacity as i32,
+            payload.location.as_deref(),
+        )
+        .await?;
+
+    let response = api::OpenEventResponse {
+        id: event.id,
+        name: event.name,
+        description: event.description,
+        start_time: event.start_time,
+        end_time: event.end_time,
+        capacity: event.capacity,
+        location: event.location,
+        created_at: event.created_at,
+        updated_at: event.updated_at,
+        status: api::EventStatus::Open,
+    };
+
+    Ok(Json(response))
+}
+
+async fn update_event(
+    Path(event_id): Path<String>,
+    State(state): State<AppState>,
+    Json(payload): Json<api::OpenEventRequest>,
+) -> Result<Json<api::OpenEventResponse>, AppError> {
+    payload.validate()?;
+    let event_id = Uuid::parse_str(&event_id).map_err(|_| AppError::not_found())?;
+
+    let db = Database { pool: state.pool.clone() };
+    let event = db
+        .update_event(
+            &event_id,
+            &payload.name,
+            payload.description.as_deref(),
+            payload.start_time,
+            payload.end_time,
+            payload.capacity as i32,
+            payload.location.as_deref(),
+        )
+        .await?;
+
+    let response = api::OpenEventResponse {
+        id: event.id,
+        name: event.name,
+        description: event.description,
+        start_time: event.start_time,
+        end_time: event.end_time,
+        capacity: event.capacity,
+        location: event.location,
+        created_at: event.created_at,
+        updated_at: event.updated_at,
+        status: api::EventStatus::Open,
+    };
+
     Ok(Json(response))
 }
 
@@ -242,6 +317,27 @@ async fn generate_random_event(
     Ok(Json(response))
 }
 
+async fn send_scanner_invite(
+    Path(event_id): Path<String>,
+    State(state): State<AppState>,
+    Json(payload): Json<api::ScannerInviteRequest>,
+) -> Result<Json<api::ScannerInviteResponse>, AppError> {
+    payload.validate()?;
+    let event_id = Uuid::parse_str(&event_id).map_err(|_| AppError::not_found())?;
+
+    let db = Database { pool: state.pool.clone() };
+    db.get_open_event_by_id(&event_id).await?; // ensure event exists
+
+    let invite = models::ScannerInvite::new(event_id, payload.email.clone(), OffsetDateTime::now_utc());
+    state
+        .email_sender
+        .send_scanner_invite(&payload.email, &invite)
+        .await?;
+
+    let response = api::ScannerInviteResponse { token: invite.token.0 };
+    Ok(Json(response))
+}
+
 async fn get_reservation_by_magic_token(
     Path(reservation_id): Path<String>,
     State(state): State<AppState>,
@@ -337,8 +433,10 @@ async fn main() -> shuttle_axum::ShuttleAxum {
     // Build Axum router with middleware layers
     let router = Router::new()
         .route("/", get(hello_world))
+        .route("/events", post(create_event))
         .route("/events/new", post(generate_random_event))
-        .route("/events/{id}", get(get_event_by_id))
+        .route("/events/{id}", get(get_event_by_id).put(update_event))
+        .route("/events/{id}/scanner_invites", post(send_scanner_invite))
         .route("/reserve", post(reserve))
         .route("/verify/{token}", get(verify_email))
         .route("/retrieve/{magic_token}", get(get_reservation_by_magic_token))
