@@ -178,21 +178,20 @@ const RequestReservationForm: React.FC<Props> = ({ eventId, maxSpotCount }) => {
 				</label>
 				<Field
 					form={form}
-					name="spot_count"
-					validators={{
-						onBlur: ({ value }) => {
-							if (!value) {
-								form.setFieldValue("spot_count", 1);
-							}
-							// TODO could use zod to validate email
-							const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
-							if (typeof value === "string" && !emailRegex.test(value)) {
-								return "Please enter a valid email address";
-							}
-							return undefined;
-						},
-					}}
-				>
+                                        name="spot_count"
+                                        validators={{
+                                                onBlur: ({ value }) => {
+                                                        if (!value || value < 1) {
+                                                                form.setFieldValue("spot_count", 1);
+                                                                return undefined;
+                                                        }
+                                                        if (value > maxSpotCount) {
+                                                                return `Cannot reserve more than ${maxSpotCount} spots`;
+                                                        }
+                                                        return undefined;
+                                                },
+                                        }}
+                                >
 					{(field) => (
 						<>
 							<input

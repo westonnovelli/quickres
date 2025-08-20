@@ -7,11 +7,12 @@ interface Event {
 	description?: string;
 	start_time: string;
 	end_time: string;
-	capacity: number;
-	location?: string;
-	created_at: string;
-	updated_at: string;
-	status: "Open" | "Full" | "Finished";
+        capacity: number;
+        max_spots_per_reservation: number;
+        location?: string;
+        created_at: string;
+        updated_at: string;
+        status: "Open" | "Full" | "Finished";
 }
 
 // would be could to make this more precise

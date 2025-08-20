@@ -29,6 +29,7 @@ struct EventRow {
     start_time: OffsetDateTime,
     end_time: OffsetDateTime,
     capacity: u32,
+    max_spots_per_reservation: u32,
     location: Option<String>,
     status: String,
     created_at: OffsetDateTime,
@@ -44,6 +45,7 @@ impl From<EventRow> for models::Event<models::Open> {
             start_time: row.start_time,
             end_time: row.end_time,
             capacity: row.capacity,
+            max_spots_per_reservation: row.max_spots_per_reservation,
             location: row.location,
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -62,6 +64,7 @@ impl From<EventRow> for models::Event<models::Full> {
             start_time: row.start_time,
             end_time: row.end_time,
             capacity: row.capacity,
+            max_spots_per_reservation: row.max_spots_per_reservation,
             location: row.location,
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -232,7 +235,7 @@ impl Database {
 
     pub async fn get_open_event_by_id(&self, event_id: &Uuid) -> Result<models::OpenEvent, DatabaseError> {
         let event = sqlx::query_as::<_, EventRow>(
-"SELECT id, name, description, start_time, end_time, capacity, location, status, created_at, updated_at FROM events WHERE id = ? AND status = 'open'"
+"SELECT id, name, description, start_time, end_time, capacity, max_spots_per_reservation, location, status, created_at, updated_at FROM events WHERE id = ? AND status = 'open'"
         )
         .bind(event_id.to_string())
         .fetch_optional(&self.pool)
@@ -244,7 +247,7 @@ impl Database {
 
     pub async fn get_all_open_events(&self) -> Result<Vec<models::OpenEvent>, DatabaseError> {
         let events = sqlx::query_as::<_, EventRow>(
-"SELECT id, name, description, start_time, end_time, capacity, location, status, created_at, updated_at FROM events WHERE status = 'open' ORDER BY start_time ASC"
+"SELECT id, name, description, start_time, end_time, capacity, max_spots_per_reservation, location, status, created_at, updated_at FROM events WHERE status = 'open' ORDER BY start_time ASC"
         )
         .fetch_all(&self.pool)
         .await?;
@@ -452,14 +455,15 @@ impl Database {
         start_time: OffsetDateTime,
         end_time: OffsetDateTime,
         capacity: i32,
+        max_spots_per_reservation: i32,
         location: Option<&str>,
     ) -> Result<models::OpenEvent, DatabaseError> {
         let event_id = Uuid::new_v4();
 
         sqlx::query(
             r#"
-            INSERT INTO events (id, name, description, start_time, end_time, capacity, location, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'open')
+            INSERT INTO events (id, name, description, start_time, end_time, capacity, max_spots_per_reservation, location, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open')
             "#
         )
         .bind(event_id.to_string())
@@ -468,6 +472,7 @@ impl Database {
         .bind(start_time)
         .bind(end_time)
         .bind(capacity)
+        .bind(max_spots_per_reservation)
         .bind(location)
         .execute(&self.pool)
         .await?;
@@ -483,11 +488,12 @@ impl Database {
         start_time: OffsetDateTime,
         end_time: OffsetDateTime,
         capacity: i32,
+        max_spots_per_reservation: i32,
         location: Option<&str>,
     ) -> Result<models::OpenEvent, DatabaseError> {
         sqlx::query(
             r#"
-            UPDATE events SET name = ?, description = ?, start_time = ?, end_time = ?, capacity = ?, location = ?
+            UPDATE events SET name = ?, description = ?, start_time = ?, end_time = ?, capacity = ?, max_spots_per_reservation = ?, location = ?
             WHERE id = ? AND status = 'open'
             "#,
         )
@@ -496,6 +502,7 @@ impl Database {
         .bind(start_time)
         .bind(end_time)
         .bind(capacity)
+        .bind(max_spots_per_reservation)
         .bind(location)
         .bind(event_id.to_string())
         .execute(&self.pool)
@@ -642,6 +649,7 @@ mod tests {
             start_time,
             end_time,
             50,
+            5,
             Some("Test Location"),
         ).await.unwrap();
         

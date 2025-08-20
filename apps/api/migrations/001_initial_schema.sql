@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS events (
     
     -- Capacity Management
     capacity INTEGER NOT NULL CHECK (capacity > 0),
+    max_spots_per_reservation INTEGER NOT NULL CHECK (max_spots_per_reservation > 0),
     
     -- Status Management
     status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'full', 'closed')),
