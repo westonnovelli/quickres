@@ -28,10 +28,10 @@ const EventReserve: React.FC<Props> = ({ eventId }) => {
 					</p>
                     <p className="text-gray-600 text-sm">When: <span className="font-semibold">{formatDateTime(event.start_time)}</span></p>
 					<p className="text-gray-600 text-sm">Where: <span className="font-semibold">{event.location}</span></p>
-				<RequestReservationForm eventId={eventId} />
-			</div>
-		</div>
-	);
+                                <RequestReservationForm eventId={eventId} maxSpotCount={event.max_spots_per_reservation} />
+                        </div>
+                </div>
+        );
 };
 
 export default EventReserve;

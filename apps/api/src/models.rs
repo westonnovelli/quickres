@@ -21,6 +21,7 @@ pub struct Event<State> {
     pub start_time: OffsetDateTime,
     pub end_time: OffsetDateTime,
     pub capacity: u32,
+    pub max_spots_per_reservation: u32,
     pub location: Option<String>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,

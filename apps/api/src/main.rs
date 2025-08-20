@@ -75,6 +75,7 @@ async fn get_event_by_id(
         start_time: event.start_time,
         end_time: event.end_time,
         capacity: event.capacity,
+        max_spots_per_reservation: event.max_spots_per_reservation,
         location: event.location,
         created_at: event.created_at,
         updated_at: event.updated_at,
@@ -98,6 +99,7 @@ async fn create_event(
             payload.start_time,
             payload.end_time,
             payload.capacity as i32,
+            payload.max_spots_per_reservation as i32,
             payload.location.as_deref(),
         )
         .await?;
@@ -109,6 +111,7 @@ async fn create_event(
         start_time: event.start_time,
         end_time: event.end_time,
         capacity: event.capacity,
+        max_spots_per_reservation: event.max_spots_per_reservation,
         location: event.location,
         created_at: event.created_at,
         updated_at: event.updated_at,
@@ -135,6 +138,7 @@ async fn update_event(
             payload.start_time,
             payload.end_time,
             payload.capacity as i32,
+            payload.max_spots_per_reservation as i32,
             payload.location.as_deref(),
         )
         .await?;
@@ -146,6 +150,7 @@ async fn update_event(
         start_time: event.start_time,
         end_time: event.end_time,
         capacity: event.capacity,
+        max_spots_per_reservation: event.max_spots_per_reservation,
         location: event.location,
         created_at: event.created_at,
         updated_at: event.updated_at,
@@ -174,6 +179,15 @@ async fn reserve(
 
     if current_count + payload.spot_count > event.capacity {
         return Err(AppError::Validation("Cannot reserve this many slots for this event".to_string()));
+    }
+
+    if payload.spot_count > event.max_spots_per_reservation {
+        return Err(AppError::Validation(
+            format!(
+                "Cannot reserve more than {} spots at a time",
+                event.max_spots_per_reservation
+            ),
+        ));
     }
     
     // Insert pending reservation
@@ -290,6 +304,7 @@ async fn generate_random_event(
     let start_time = now + Duration::hours(24 + (seed % 24) as i64);
     let end_time = start_time + Duration::hours(2 + (seed % 3) as i64);
     let capacity = 20 + (seed % 80) as i32; // Random capacity between 20-100
+    let max_spots_per_reservation = 5; // default limit for generated events
     
     // Create the event
     let event = db.create_event(
@@ -298,6 +313,7 @@ async fn generate_random_event(
         start_time,
         end_time,
         capacity,
+        max_spots_per_reservation,
         location.as_deref(),
     ).await?;
     
@@ -308,6 +324,7 @@ async fn generate_random_event(
         start_time: event.start_time,
         end_time: event.end_time,
         capacity: event.capacity,
+        max_spots_per_reservation: event.max_spots_per_reservation,
         location: event.location,
         created_at: event.created_at,
         updated_at: event.updated_at,
@@ -385,6 +402,7 @@ async fn get_reservation_by_magic_token(
                 start_time: event.start_time,
                 end_time: event.end_time,
                 capacity: event.capacity,
+                max_spots_per_reservation: event.max_spots_per_reservation,
                 location: event.location,
             }
         },

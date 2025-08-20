@@ -14,6 +14,8 @@ pub struct OpenEventRequest {
     pub location: Option<String>,
     #[validate(range(min = 1, max = 10000, message = "Capacity must be between 1 and 10000"))]
     pub capacity: u32,
+    #[validate(range(min = 1, max = 10000, message = "Max spots per reservation must be between 1 and 10000"))]
+    pub max_spots_per_reservation: u32,
     #[serde(with = "time::serde::iso8601")]
     pub start_time: OffsetDateTime,
     #[serde(with = "time::serde::iso8601")]
@@ -45,6 +47,7 @@ pub struct OpenEventResponse {
     #[serde(with = "time::serde::iso8601")]
     pub end_time: OffsetDateTime,
     pub capacity: u32,
+    pub max_spots_per_reservation: u32,
     pub location: Option<String>,
     #[serde(with = "time::serde::iso8601")]
     pub created_at: OffsetDateTime,
@@ -123,6 +126,7 @@ pub struct RetrieveReservationEventResponse {
     #[serde(with = "time::serde::iso8601")]
     pub end_time: OffsetDateTime,
     pub capacity: u32,
+    pub max_spots_per_reservation: u32,
     pub location: Option<String>,
 }
 
